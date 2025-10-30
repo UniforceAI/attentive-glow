@@ -14,7 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chamados: {
+        Row: {
+          categoria: string
+          chamados_anteriores: string
+          classificacao: string
+          created_at: string
+          data_abertura: string
+          dias_desde_ultimo: number | null
+          id: string
+          id_cliente: number
+          insight: string
+          motivo_contato: string
+          origem: string
+          protocolo: string
+          qtd_chamados: number
+          responsavel: string
+          setor: string
+          solicitante: string
+          status: string
+          tempo_atendimento: string
+          ultima_atualizacao: string
+          updated_at: string
+          urgencia: string
+        }
+        Insert: {
+          categoria: string
+          chamados_anteriores: string
+          classificacao: string
+          created_at?: string
+          data_abertura: string
+          dias_desde_ultimo?: number | null
+          id?: string
+          id_cliente: number
+          insight: string
+          motivo_contato: string
+          origem: string
+          protocolo: string
+          qtd_chamados: number
+          responsavel: string
+          setor: string
+          solicitante: string
+          status: string
+          tempo_atendimento: string
+          ultima_atualizacao: string
+          updated_at?: string
+          urgencia: string
+        }
+        Update: {
+          categoria?: string
+          chamados_anteriores?: string
+          classificacao?: string
+          created_at?: string
+          data_abertura?: string
+          dias_desde_ultimo?: number | null
+          id?: string
+          id_cliente?: number
+          insight?: string
+          motivo_contato?: string
+          origem?: string
+          protocolo?: string
+          qtd_chamados?: number
+          responsavel?: string
+          setor?: string
+          solicitante?: string
+          status?: string
+          tempo_atendimento?: string
+          ultima_atualizacao?: string
+          updated_at?: string
+          urgencia?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
