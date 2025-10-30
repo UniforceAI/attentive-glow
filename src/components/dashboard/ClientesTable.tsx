@@ -1,11 +1,18 @@
 import { useState } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Chamado } from "@/types/chamado";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Eye, ChevronDown, ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getExpandedRowModel,
+  ColumnDef,
+  flexRender,
+  ColumnResizeMode,
+} from "@tanstack/react-table";
 
 interface ClientesTableProps {
   chamados: Chamado[];
@@ -14,6 +21,7 @@ interface ClientesTableProps {
 
 export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -26,7 +34,6 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
   };
 
   const formatTempo = (tempo: string) => {
-    // Parse horas do tempo
     let totalHoras = 0;
     
     if (tempo.includes("h")) {
@@ -34,25 +41,21 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
     } else if (tempo.includes("min")) {
       totalHoras = parseFloat(tempo.split("min")[0]) / 60;
     } else if (tempo.includes("dia")) {
-      // Já está em dias
       return tempo;
     } else {
       return tempo;
     }
     
-    // Se >= 1 dia, mostrar em dias
     if (totalHoras >= 24) {
       const dias = Math.floor(totalHoras / 24);
       return `${dias} dia${dias > 1 ? 's' : ''}`;
     }
     
-    // Se < 1 dia, mostrar em horas
     return `${totalHoras.toFixed(1)}h`;
   };
 
   const parseChamadosAnteriores = (chamadosStr: string) => {
     try {
-      // Formato esperado: "Protocolo1 - Data1; Protocolo2 - Data2"
       if (!chamadosStr || chamadosStr === "-") return [];
       
       return chamadosStr.split(";").map(item => {
@@ -90,83 +93,157 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
     }
   };
 
+  const columns: ColumnDef<Chamado>[] = [
+    {
+      id: 'expander',
+      header: '',
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => toggleRow(row.original._id || row.original.Protocolo)}
+        >
+          {expandedRows.has(row.original._id || row.original.Protocolo) ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </Button>
+      ),
+      size: 50,
+      enableResizing: false,
+    },
+    {
+      accessorKey: 'ID Cliente',
+      header: 'ID Cliente',
+      cell: info => <span className="font-medium">{info.getValue() as string}</span>,
+      size: 100,
+    },
+    {
+      accessorKey: 'Qtd. Chamados',
+      header: 'Qtd. Chamados',
+      cell: info => <Badge variant="outline">{info.getValue() as number}</Badge>,
+      size: 130,
+    },
+    {
+      accessorKey: 'Motivo do Contato',
+      header: 'Último Motivo',
+      cell: info => <span className="truncate max-w-[200px] block">{info.getValue() as string}</span>,
+      size: 200,
+    },
+    {
+      accessorKey: 'Dias desde Último Chamado',
+      header: 'Dias desde Último',
+      cell: info => <Badge variant="secondary">{info.getValue() as number} dias</Badge>,
+      size: 150,
+    },
+    {
+      accessorKey: 'Tempo de Atendimento',
+      header: 'Tempo de Atendimento',
+      cell: info => formatTempo(info.getValue() as string),
+      size: 170,
+    },
+    {
+      accessorKey: 'Classificação',
+      header: 'Classificação',
+      cell: info => {
+        const classificacao = info.getValue() as string;
+        return <Badge className={getClassificacaoColor(classificacao)}>{classificacao}</Badge>;
+      },
+      size: 130,
+    },
+    {
+      accessorKey: 'Insight',
+      header: 'Insight',
+      cell: info => <span className="truncate max-w-[300px] block text-sm">{info.getValue() as string}</span>,
+      size: 300,
+    },
+    {
+      id: 'actions',
+      header: 'Ações',
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onClienteClick(row.original)}
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+      size: 80,
+      enableResizing: false,
+    },
+  ];
+
+  const table = useReactTable({
+    data: chamados,
+    columns,
+    columnResizeMode,
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+  });
+
   return (
-    <div className="rounded-md border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[50px]"></TableHead>
-            <TableHead>ID Cliente</TableHead>
-            <TableHead>Qtd. Chamados</TableHead>
-            <TableHead>Último Motivo</TableHead>
-            <TableHead>Dias desde Último</TableHead>
-            <TableHead>Tempo de Atendimento</TableHead>
-            <TableHead>Classificação</TableHead>
-            <TableHead>Insight</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {chamados.map((chamado) => {
+    <div className="rounded-md border bg-card overflow-auto">
+      <table className="w-full border-collapse">
+        <thead>
+          {table.getHeaderGroups().map(headerGroup => (
+            <tr key={headerGroup.id} className="border-b">
+              {headerGroup.headers.map(header => (
+                <th
+                  key={header.id}
+                  className="h-12 px-4 text-left align-middle font-medium text-muted-foreground relative"
+                  style={{
+                    width: header.getSize(),
+                  }}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                  {header.column.getCanResize() && (
+                    <div
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      className={cn(
+                        "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none bg-border hover:bg-primary/50 transition-colors",
+                        header.column.getIsResizing() && "bg-primary"
+                      )}
+                    />
+                  )}
+                </th>
+              ))}
+            </tr>
+          ))}
+        </thead>
+        <tbody>
+          {table.getRowModel().rows.map(row => {
+            const chamado = row.original;
             const chamadosAnteriores = parseChamadosAnteriores(chamado["Chamados Anteriores"]);
             const isExpanded = expandedRows.has(chamado._id || chamado.Protocolo);
             
             return (
-              <Collapsible key={chamado._id || chamado.Protocolo} asChild open={isExpanded}>
+              <Collapsible key={row.id} asChild open={isExpanded}>
                 <>
-                  <TableRow 
-                    className={cn("transition-colors", getRowColor(chamado.Classificação))}
-                  >
-                    <TableCell>
-                      <CollapsibleTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleRow(chamado._id || chamado.Protocolo)}
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </CollapsibleTrigger>
-                    </TableCell>
-                    <TableCell className="font-medium">{chamado["ID Cliente"]}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{chamado["Qtd. Chamados"]}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {chamado["Motivo do Contato"]}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {chamado["Dias desde Último Chamado"]} dias
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatTempo(chamado["Tempo de Atendimento"])}</TableCell>
-                    <TableCell>
-                      <Badge className={getClassificacaoColor(chamado.Classificação)}>
-                        {chamado.Classificação}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[300px] truncate text-sm">
-                      {chamado.Insight}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onClienteClick(chamado)}
+                  <tr className={cn("border-b transition-colors", getRowColor(chamado.Classificação))}>
+                    {row.getVisibleCells().map(cell => (
+                      <td
+                        key={cell.id}
+                        className="p-4 align-middle"
+                        style={{
+                          width: cell.column.getSize(),
+                        }}
                       >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
                   {chamadosAnteriores.length > 0 && (
                     <CollapsibleContent asChild>
-                      <TableRow className={cn("border-t-0", getRowColor(chamado.Classificação))}>
-                        <TableCell colSpan={9} className="bg-muted/30 p-4">
+                      <tr className={cn("border-b-0", getRowColor(chamado.Classificação))}>
+                        <td colSpan={columns.length} className="bg-muted/30 p-4">
                           <div className="space-y-2">
                             <h4 className="font-semibold text-sm">Chamados Anteriores:</h4>
                             <div className="flex flex-wrap gap-2">
@@ -177,16 +254,16 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
                               ))}
                             </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     </CollapsibleContent>
                   )}
                 </>
               </Collapsible>
             );
           })}
-        </TableBody>
-      </Table>
+        </tbody>
+      </table>
     </div>
   );
 }
