@@ -268,6 +268,9 @@ const Index = () => {
                 subtitle={`${reincidentes} chamados`}
                 icon={RefreshCcw}
                 variant="destructive"
+                detalhes={filteredChamados
+                  .filter((c) => c.Classificação === "Reincidente")
+                  .map((c) => ({ id: c["ID Cliente"], label: c["Motivo do Contato"] }))}
               />
               <KPICard
                 title="Resolvidos < 24h"
@@ -282,6 +285,9 @@ const Index = () => {
                 subtitle={`${chamadosAbertos} ativos`}
                 icon={AlertCircle}
                 variant="warning"
+                detalhes={filteredChamados
+                  .filter((c) => c.Status === "Novo" || c.Status === "Em Andamento")
+                  .map((c) => ({ id: c["ID Cliente"], label: c.Status }))}
               />
               <KPICard
                 title="Urgência"
@@ -289,6 +295,9 @@ const Index = () => {
                 subtitle={`Alta | ${urgenciaMedia} Média | ${urgenciaBaixa} Baixa`}
                 icon={AlertCircle}
                 variant={urgenciaAlta > 0 ? "destructive" : "default"}
+                detalhes={filteredChamados
+                  .filter((c) => c.Urgência === "Alta")
+                  .map((c) => ({ id: c["ID Cliente"], label: c["Motivo do Contato"] }))}
               />
             </div>
 
