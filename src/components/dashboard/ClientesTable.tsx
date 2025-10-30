@@ -56,14 +56,37 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
 
   const parseChamadosAnteriores = (chamadosStr: string) => {
     try {
-      if (!chamadosStr || chamadosStr === "-") return [];
+      // Verificar se tem dados válidos
+      if (!chamadosStr || chamadosStr.trim() === "" || chamadosStr === "—" || chamadosStr === "-") {
+        return [];
+      }
       
-      return chamadosStr.split(";").map(item => {
-        const [protocolo, data] = item.split(" - ").map(s => s.trim());
-        return { protocolo, data };
+      // Separar por quebra de linha
+      return chamadosStr.split("\n").map(item => {
+        // Remover emojis de número (1️⃣, 2️⃣, etc.) e espaços extras
+        const semEmoji = item.replace(/\d+️⃣\s*/g, "").trim();
+        
+        // Separar por travessão (–) ou hífen (-)
+        const separadores = ["–", "-", "—"];
+        let descricao = "";
+        let data = "";
+        
+        for (const sep of separadores) {
+          if (semEmoji.includes(sep)) {
+            const partes = semEmoji.split(sep);
+            descricao = partes[0]?.trim() || "";
+            data = partes[1]?.trim() || "";
+            break;
+          }
+        }
+        
+        return { 
+          protocolo: descricao, 
+          data: data 
+        };
       }).filter(item => item.protocolo && item.data);
     } catch (e) {
-      console.error("Erro ao parsear chamados anteriores:", e);
+      console.error("Erro ao parsear chamados anteriores:", e, chamadosStr);
       return [];
     }
   };
@@ -224,8 +247,6 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
             const chamado = row.original;
             const chamadosAnteriores = parseChamadosAnteriores(chamado["Chamados Anteriores"]);
             const isExpanded = expandedRows.has(chamado._id || chamado.Protocolo);
-            
-            console.log("Chamado:", chamado["ID Cliente"], "Expandido:", isExpanded, "Anteriores:", chamadosAnteriores.length);
             
             return (
               <>
