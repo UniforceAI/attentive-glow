@@ -110,6 +110,21 @@ const Index = () => {
   useEffect(() => {
     let filtered = [...chamados];
 
+    // Filtro por período baseado na data de abertura
+    if (periodo !== "todos") {
+      const diasAtras = parseInt(periodo);
+      const dataLimite = new Date();
+      dataLimite.setDate(dataLimite.getDate() - diasAtras);
+
+      filtered = filtered.filter((c) => {
+        // Converter string DD/MM/YYYY para Date
+        const [dia, mes, ano] = c["Data de Abertura"].split("/");
+        const [anoNum, horaCompleta] = ano.split(" ");
+        const dataAbertura = new Date(parseInt(anoNum), parseInt(mes) - 1, parseInt(dia));
+        return dataAbertura >= dataLimite;
+      });
+    }
+
     if (status !== "todos") {
       filtered = filtered.filter((c) => c.Status === status);
     }
