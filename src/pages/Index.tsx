@@ -69,6 +69,16 @@ const Index = () => {
         }));
 
         console.log(`✅ ${chamadosTransformados.length} chamados carregados`);
+        
+        // Log de debug: contar chamados por cliente
+        const countPorCliente = chamadosTransformados.reduce((acc, c) => {
+          const id = c["ID Cliente"];
+          acc[id] = (acc[id] || 0) + 1;
+          return acc;
+        }, {} as Record<number, number>);
+        
+        console.log('📊 Chamados por cliente do banco:', countPorCliente);
+        
         setChamados(chamadosTransformados);
         
       } catch (error: any) {
@@ -189,29 +199,51 @@ const Index = () => {
     setSheetOpen(true);
   };
 
-  // Agrupar TODOS os chamados por ID Cliente (sem filtro primeiro)
+  // Função auxiliar para parsear data
+  const parseData = (dataStr: string) => {
+    try {
+      const [datePart, timePart] = dataStr.split(" ");
+      const [dia, mes, ano] = datePart.split("/");
+      const [hora, min, seg] = (timePart || "00:00:00").split(":");
+      return new Date(
+        parseInt(ano), 
+        parseInt(mes) - 1, 
+        parseInt(dia), 
+        parseInt(hora || "0"), 
+        parseInt(min || "0"), 
+        parseInt(seg || "0")
+      ).getTime();
+    } catch (e) {
+      console.error("Erro ao parsear data:", dataStr, e);
+      return 0;
+    }
+  };
+
+  // Agrupar TODOS os chamados por ID Cliente (normalizado para evitar problemas)
   const todosChamadosPorCliente = chamados.reduce((acc, chamado) => {
-    const idCliente = chamado["ID Cliente"];
+    // Normalizar ID Cliente para garantir agrupamento correto
+    const idCliente = Number(chamado["ID Cliente"]);
+    
+    if (isNaN(idCliente)) {
+      console.warn("ID Cliente inválido:", chamado["ID Cliente"], chamado);
+      return acc;
+    }
     
     if (!acc[idCliente]) {
       acc[idCliente] = {
         principal: chamado,
         todos: [chamado]
       };
+      console.log(`Novo cliente ${idCliente}: 1 chamado`);
     } else {
       acc[idCliente].todos.push(chamado);
+      console.log(`Cliente ${idCliente}: ${acc[idCliente].todos.length} chamados`);
       
-      const parseData = (dataStr: string) => {
-        const [datePart, timePart] = dataStr.split(" ");
-        const [dia, mes, ano] = datePart.split("/");
-        const [hora, min, seg] = (timePart || "00:00:00").split(":");
-        return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), parseInt(hora || "0"), parseInt(min || "0"), parseInt(seg || "0")).getTime();
-      };
+      // Atualizar principal se este chamado for mais recente
+      const dataAtual = parseData(acc[idCliente].principal["Data de Abertura"]);
+      const dataNovo = parseData(chamado["Data de Abertura"]);
       
-      const dataAtual = acc[idCliente].principal["Data de Abertura"];
-      const dataNovo = chamado["Data de Abertura"];
-      
-      if (parseData(dataNovo) > parseData(dataAtual)) {
+      if (dataNovo > dataAtual) {
         acc[idCliente].principal = chamado;
       }
     }
@@ -219,9 +251,11 @@ const Index = () => {
     return acc;
   }, {} as Record<number, { principal: Chamado; todos: Chamado[] }>);
 
-  // Corrigir a quantidade real de chamados baseado nos registros reais
-  Object.values(todosChamadosPorCliente).forEach(({ principal, todos }) => {
-    principal["Qtd. Chamados"] = todos.length;
+  // Corrigir a quantidade real de chamados e logar para debug
+  Object.entries(todosChamadosPorCliente).forEach(([idCliente, { principal, todos }]) => {
+    const qtdReal = todos.length;
+    principal["Qtd. Chamados"] = qtdReal;
+    console.log(`✅ Cliente ${idCliente}: ${qtdReal} chamados totais`);
   });
 
   // Agora aplicar filtros para decidir quais CLIENTES mostrar
@@ -261,19 +295,20 @@ const Index = () => {
 
   // Converter para array com chamados anteriores e ordenar
   const clientesCriticos = clientesParaMostrar.map(({ principal, todos }) => {
+    // Ordenar todos os chamados por data (mais recente primeiro)
     const ordenados = [...todos].sort((a, b) => {
-      const parseData = (dataStr: string) => {
-        const [datePart, timePart] = dataStr.split(" ");
-        const [dia, mes, ano] = datePart.split("/");
-        const [hora, min, seg] = (timePart || "00:00:00").split(":");
-        return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), parseInt(hora || "0"), parseInt(min || "0"), parseInt(seg || "0")).getTime();
-      };
       return parseData(b["Data de Abertura"]) - parseData(a["Data de Abertura"]);
     });
     
+    // O primeiro é o principal (mais recente), o resto são anteriores
+    const chamadosAnteriores = ordenados.slice(1);
+    
+    console.log(`📋 Cliente ${principal["ID Cliente"]}: ${todos.length} total, ${chamadosAnteriores.length} anteriores`);
+    
     return {
       ...principal,
-      _chamadosAnteriores: ordenados.slice(1)
+      "Qtd. Chamados": todos.length, // Garantir que está correto
+      _chamadosAnteriores: chamadosAnteriores
     };
   }).sort((a, b) => b["Qtd. Chamados"] - a["Qtd. Chamados"]);
 
