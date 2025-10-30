@@ -17,6 +17,11 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
     muitos: 1,
     demorados: 1
   });
+  const [sortConfig, setSortConfig] = useState<Record<string, { key: string; direction: 'asc' | 'desc' }>>({
+    reabertos: { key: '', direction: 'asc' },
+    muitos: { key: '', direction: 'asc' },
+    demorados: { key: '', direction: 'asc' }
+  });
   
   const ITEMS_PER_PAGE = 10;
 
@@ -36,11 +41,80 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
     setCurrentPage(prev => ({ ...prev, [section]: 1 }));
   };
 
+  const handleSort = (section: string, key: string) => {
+    setSortConfig(prev => {
+      const currentSort = prev[section];
+      const newDirection = currentSort.key === key && currentSort.direction === 'asc' ? 'desc' : 'asc';
+      return {
+        ...prev,
+        [section]: { key, direction: newDirection }
+      };
+    });
+    setCurrentPage(prev => ({ ...prev, [section]: 1 }));
+  };
+
+  const sortData = (data: Chamado[], section: string) => {
+    const sort = sortConfig[section];
+    if (!sort.key) return data;
+
+    return [...data].sort((a, b) => {
+      let aVal: any = '';
+      let bVal: any = '';
+
+      switch (sort.key) {
+        case 'id':
+          aVal = a["ID Cliente"];
+          bVal = b["ID Cliente"];
+          break;
+        case 'data':
+          const parseDate = (str: string) => {
+            const [datePart] = str.split(" ");
+            const [dia, mes, ano] = datePart.split("/");
+            return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia)).getTime();
+          };
+          aVal = parseDate(a["Data de Abertura"]);
+          bVal = parseDate(b["Data de Abertura"]);
+          break;
+        case 'qtd':
+          aVal = a["Qtd. Chamados"];
+          bVal = b["Qtd. Chamados"];
+          break;
+        case 'motivo':
+          aVal = a["Motivo do Contato"];
+          bVal = b["Motivo do Contato"];
+          break;
+        case 'status':
+          aVal = a["Status"];
+          bVal = b["Status"];
+          break;
+        case 'tempo':
+          aVal = a["Tempo de Atendimento"];
+          bVal = b["Tempo de Atendimento"];
+          break;
+        case 'classificacao':
+          aVal = a["Classificação"];
+          bVal = b["Classificação"];
+          break;
+        default:
+          return 0;
+      }
+
+      if (typeof aVal === 'string') {
+        return sort.direction === 'asc' 
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      
+      return sort.direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  };
+
   const renderPaginatedTable = (data: Chamado[], section: string) => {
+    const sortedData = sortData(data, section);
     const page = currentPage[section] || 1;
     const startIdx = (page - 1) * ITEMS_PER_PAGE;
     const endIdx = startIdx + ITEMS_PER_PAGE;
-    const paginatedData = data.slice(startIdx, endIdx);
+    const paginatedData = sortedData.slice(startIdx, endIdx);
     const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
 
     return (
@@ -49,13 +123,48 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID Cliente</TableHead>
-                <TableHead>Data Abertura</TableHead>
-                <TableHead>Qtd. Chamados</TableHead>
-                <TableHead>Motivo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Tempo</TableHead>
-                <TableHead>Classificação</TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'id')}
+                >
+                  ID Cliente
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'data')}
+                >
+                  Data Abertura
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'qtd')}
+                >
+                  Qtd. Chamados
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'motivo')}
+                >
+                  Motivo
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'status')}
+                >
+                  Status
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'tempo')}
+                >
+                  Tempo
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'classificacao')}
+                >
+                  Classificação
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
