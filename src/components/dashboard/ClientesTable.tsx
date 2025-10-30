@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Chamado } from "@/types/chamado";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Eye, ChevronDown, ChevronRight } from "lucide-react";
+import { Eye, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -14,6 +14,8 @@ import {
   useReactTable,
   getCoreRowModel,
   getExpandedRowModel,
+  getSortedRowModel,
+  SortingState,
   ColumnDef,
   flexRender,
   ColumnResizeMode,
@@ -27,6 +29,7 @@ interface ClientesTableProps {
 export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
+  const [sorting, setSorting] = useState<SortingState>([]);
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -124,51 +127,186 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
       ),
       size: 50,
       enableResizing: false,
+      enableSorting: false,
     },
     {
       accessorKey: 'ID Cliente',
-      header: 'ID Cliente',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            ID Cliente
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => <span className="font-medium">{info.getValue() as string}</span>,
       size: 100,
     },
     {
       accessorKey: 'Data de Abertura',
-      header: 'Data Abertura',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Data Abertura
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => {
         const dataCompleta = info.getValue() as string;
         const [datePart] = dataCompleta.split(" ");
         return <span className="text-sm text-muted-foreground">{datePart}</span>;
       },
       size: 120,
+      sortingFn: (rowA, rowB) => {
+        const parseData = (dataStr: string) => {
+          const [datePart] = dataStr.split(" ");
+          const [dia, mes, ano] = datePart.split("/");
+          return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia)).getTime();
+        };
+        return parseData(rowA.original["Data de Abertura"]) - parseData(rowB.original["Data de Abertura"]);
+      },
     },
     {
       id: 'qtd-chamados',
       accessorFn: row => row["Qtd. Chamados"],
-      header: 'Qtd. Chamados',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Qtd. Chamados
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => <Badge variant="outline">{info.getValue() as number}</Badge>,
       size: 130,
     },
     {
       accessorKey: 'Motivo do Contato',
-      header: 'Último Motivo',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Último Motivo
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => <span className="truncate max-w-[200px] block">{info.getValue() as string}</span>,
       size: 200,
     },
     {
       accessorKey: 'Dias desde Último Chamado',
-      header: 'Dias desde Último',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Dias desde Último
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => <Badge variant="secondary">{info.getValue() as number} dias</Badge>,
       size: 150,
     },
     {
       accessorKey: 'Tempo de Atendimento',
-      header: 'Tempo de Atendimento',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Tempo de Atendimento
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => formatTempo(info.getValue() as string),
       size: 170,
     },
     {
       accessorKey: 'Classificação',
-      header: 'Classificação',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Classificação
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => {
         const classificacao = info.getValue() as string;
         return <Badge className={getClassificacaoColor(classificacao)}>{classificacao}</Badge>;
@@ -177,7 +315,25 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
     },
     {
       accessorKey: 'Insight',
-      header: 'Insight',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Insight
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="ml-2 h-4 w-4" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="ml-2 h-4 w-4" />
+            ) : (
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            )}
+          </Button>
+        );
+      },
       cell: info => {
         const insight = info.getValue() as string;
         return (
@@ -211,6 +367,7 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
       ),
       size: 80,
       enableResizing: false,
+      enableSorting: false,
     },
   ];
 
@@ -218,8 +375,13 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
     data: chamados,
     columns,
     columnResizeMode,
+    state: {
+      sorting,
+    },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
