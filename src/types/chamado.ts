@@ -13,7 +13,7 @@ export interface Chamado {
   "Solicitante": string;
   "Urgência": "Alta" | "Média" | "Baixa";
   "Status": "Novo" | "Em Andamento" | "Resolvido" | "Fechado";
-  "Dias desde Último Chamado": number;
+  "Dias ultimo chamado": number;
   "Tempo de Atendimento": string;
   "Classificação": "Rápido" | "Normal" | "Lento" | "Reincidente";
   "Insight": string;

@@ -52,7 +52,7 @@ const Index = () => {
           Solicitante: item.solicitante,
           Urgência: item.urgencia,
           Status: item.status,
-          "Dias Último Chamado": item.dias_desde_ultimo,
+          "Dias ultimo chamado": item.dias_desde_ultimo,
           "Tempo de Atendimento": item.tempo_atendimento,
           Classificação: item.classificacao,
           Insight: item.insight,

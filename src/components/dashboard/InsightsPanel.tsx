@@ -27,7 +27,7 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
 
   // Clientes que reabriram em menos de 5 dias
   const reabertosRapido = chamados.filter(
-    (c) => c["Dias desde Último Chamado"] < 5 && c["Qtd. Chamados"] > 1
+    (c) => c["Dias ultimo chamado"] < 5 && c["Qtd. Chamados"] > 1
   );
 
   // Clientes com mais de 3 chamados

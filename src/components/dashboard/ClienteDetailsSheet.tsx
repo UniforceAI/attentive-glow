@@ -130,8 +130,8 @@ export function ClienteDetailsSheet({ chamado, open, onOpenChange }: ClienteDeta
             <div className="flex items-start gap-3">
               <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Dias desde Último Chamado</p>
-                <p className="text-sm text-muted-foreground">{chamado["Dias desde Último Chamado"]} dias</p>
+                <p className="text-sm font-medium">Dias ultimo chamado</p>
+                <p className="text-sm text-muted-foreground">{chamado["Dias ultimo chamado"]} dias</p>
               </div>
             </div>
           </div>

@@ -231,7 +231,7 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
       size: 200,
     },
     {
-      accessorKey: 'Dias desde Último Chamado',
+      accessorKey: 'Dias ultimo chamado',
       header: ({ column }) => {
         return (
           <Button
@@ -240,7 +240,7 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="hover:bg-transparent p-0 h-auto font-medium"
           >
-            Dias desde Último
+            Dias ultimo chamado
           </Button>
         );
       },
