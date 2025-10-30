@@ -35,10 +35,10 @@ export function KPICard({ title, value, subtitle, icon: Icon, trend, variant = "
   const hasDetalhes = detalhes && detalhes.length > 0;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className={cn("border-l-4 hover:shadow-lg transition-shadow", variantStyles[variant])}>
+    <Card className={cn("border-l-4 hover:shadow-lg transition-shadow", variantStyles[variant])}>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
-          <div className={cn("p-6 cursor-pointer", hasDetalhes && "pb-4")}>
+          <button className={cn("p-6 w-full text-left", hasDetalhes && "pb-4")}>
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <p className="text-sm font-medium text-muted-foreground">{title}</p>
@@ -58,7 +58,7 @@ export function KPICard({ title, value, subtitle, icon: Icon, trend, variant = "
                 )}
               </div>
             </div>
-          </div>
+          </button>
         </CollapsibleTrigger>
         {hasDetalhes && (
           <CollapsibleContent>
@@ -81,7 +81,7 @@ export function KPICard({ title, value, subtitle, icon: Icon, trend, variant = "
             </div>
           </CollapsibleContent>
         )}
-      </Card>
-    </Collapsible>
+      </Collapsible>
+    </Card>
   );
 }

@@ -189,10 +189,9 @@ const Index = () => {
     setSheetOpen(true);
   };
 
-  // Ordenar clientes críticos por quantidade de chamados
+  // Ordenar todos os clientes críticos por quantidade de chamados (sem limite)
   const clientesCriticos = [...filteredChamados]
-    .sort((a, b) => b["Qtd. Chamados"] - a["Qtd. Chamados"])
-    .slice(0, 10);
+    .sort((a, b) => b["Qtd. Chamados"] - a["Qtd. Chamados"]);
 
   return (
     <div className="min-h-screen bg-background">

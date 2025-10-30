@@ -26,20 +26,28 @@ export function ClientesTable({ chamados, onClienteClick }: ClientesTableProps) 
   };
 
   const formatTempo = (tempo: string) => {
-    // Se contém "h" e número >= 24, converter para dias
+    // Parse horas do tempo
+    let totalHoras = 0;
+    
     if (tempo.includes("h")) {
-      const horas = parseInt(tempo.split("h")[0]);
-      if (horas >= 24) {
-        const dias = Math.floor(horas / 24);
-        return `${dias} dia${dias > 1 ? 's' : ''}`;
-      }
+      totalHoras = parseFloat(tempo.split("h")[0]);
+    } else if (tempo.includes("min")) {
+      totalHoras = parseFloat(tempo.split("min")[0]) / 60;
+    } else if (tempo.includes("dia")) {
+      // Já está em dias
+      return tempo;
+    } else {
       return tempo;
     }
-    // Se for menor que 1 hora (0.x ou minutos), mostrar em horas
-    if (tempo.includes("min")) {
-      return tempo.replace("min", " min");
+    
+    // Se >= 1 dia, mostrar em dias
+    if (totalHoras >= 24) {
+      const dias = Math.floor(totalHoras / 24);
+      return `${dias} dia${dias > 1 ? 's' : ''}`;
     }
-    return tempo;
+    
+    // Se < 1 dia, mostrar em horas
+    return `${totalHoras.toFixed(1)}h`;
   };
 
   const parseChamadosAnteriores = (chamadosStr: string) => {
