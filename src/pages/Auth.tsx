@@ -96,7 +96,7 @@ export default function Auth() {
           <CardDescription>
             {isLogin
               ? "Entre com suas credenciais"
-              : `Crie sua conta com email @${ALLOWED_DOMAINS.join(" ou @")}`}
+              : "Crie sua conta para acessar o sistema"}
           </CardDescription>
         </CardHeader>
         <CardContent>
