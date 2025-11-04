@@ -94,9 +94,7 @@ export default function Auth() {
         <CardHeader>
           <CardTitle>{isLogin ? "Login" : "Criar Conta"}</CardTitle>
           <CardDescription>
-            {isLogin
-              ? "Entre com suas credenciais"
-              : "Crie sua conta para acessar o sistema"}
+            {isLogin ? "Entre com suas credenciais" : "Preencha os dados abaixo"}
           </CardDescription>
         </CardHeader>
         <CardContent>
