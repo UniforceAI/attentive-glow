@@ -36,7 +36,7 @@ export default function Auth() {
   const validateEmail = (email: string): boolean => {
     const domain = email.split("@")[1];
     if (!ALLOWED_DOMAINS.includes(domain)) {
-      toast.error(`Email deve ser dos domínios: ${ALLOWED_DOMAINS.join(", ")}`);
+      toast.error(`Domínio não registrado: ${domain}`);
       return false;
     }
     return true;
@@ -65,7 +65,7 @@ export default function Auth() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Conta criada com sucesso!");
+      toast.success("Verifique seu email para confirmar a conta!");
     }
   };
 
