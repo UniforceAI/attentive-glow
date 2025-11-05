@@ -27,24 +27,43 @@ interface ClientesTableProps {
 }
 
 // Funções utilitárias fora do componente
-const formatTempo = (tempo: string) => {
-  if (!tempo || tempo === "—" || tempo === "-") {
+const formatTempo = (tempo: string | number) => {
+  if (!tempo && tempo !== 0) {
+    return "—";
+  }
+  
+  // Se vier como string vazia, "-" ou "—"
+  if (typeof tempo === "string" && (tempo === "—" || tempo === "-" || tempo.trim() === "")) {
     return "—";
   }
   
   let totalHoras = 0;
   
-  if (tempo.includes("d")) {
-    const dias = parseFloat(tempo.split("d")[0]);
-    totalHoras = dias * 24;
-  } else if (tempo.includes("h")) {
-    totalHoras = parseFloat(tempo.split("h")[0]);
-  } else if (tempo.includes("min")) {
-    totalHoras = parseFloat(tempo.split("min")[0]) / 60;
-  } else {
-    return tempo;
+  // Se for número, já é a quantidade de horas
+  if (typeof tempo === "number") {
+    totalHoras = tempo;
+  } 
+  // Se for string, verificar o formato
+  else if (typeof tempo === "string") {
+    // Se for um número em formato string (ex: "9.3", "0", "1.5")
+    const numeroFloat = parseFloat(tempo);
+    if (!isNaN(numeroFloat) && !tempo.includes("d") && !tempo.includes("h") && !tempo.includes("min")) {
+      totalHoras = numeroFloat;
+    }
+    // Formatos com sufixos
+    else if (tempo.includes("d")) {
+      const dias = parseFloat(tempo.split("d")[0]);
+      totalHoras = dias * 24;
+    } else if (tempo.includes("h")) {
+      totalHoras = parseFloat(tempo.split("h")[0]);
+    } else if (tempo.includes("min")) {
+      totalHoras = parseFloat(tempo.split("min")[0]) / 60;
+    } else {
+      return tempo;
+    }
   }
   
+  // Formatação da saída
   if (totalHoras === 0) {
     return "0h";
   }
