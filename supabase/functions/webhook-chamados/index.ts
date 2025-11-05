@@ -78,10 +78,8 @@ serve(async (req) => {
         throw new Error(`Chamado ${index + 1}: Campo "Dias desde Último Chamado" deve ser numérico`);
       }
       
+      // Tempo de Atendimento pode vir como texto (ex: "0h", "2h") ou número
       const tempoAtendimento = item["Tempo de Atendimento"];
-      if (tempoAtendimento !== null && tempoAtendimento !== undefined && typeof tempoAtendimento !== 'number') {
-        throw new Error(`Chamado ${index + 1}: Campo "Tempo de Atendimento" deve ser numérico`);
-      }
       
       // Limitar tamanho de strings para prevenir ataques
       const maxStringLength = 1000;
