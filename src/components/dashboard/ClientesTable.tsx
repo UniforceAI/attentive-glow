@@ -186,6 +186,23 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
       size: 100,
     },
     {
+      accessorKey: 'Solicitante',
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="hover:bg-transparent p-0 h-auto font-medium"
+          >
+            Nome Completo
+          </Button>
+        );
+      },
+      cell: info => <span className="truncate max-w-[180px] block">{info.getValue() as string}</span>,
+      size: 180,
+    },
+    {
       accessorKey: 'Data de Abertura',
       header: ({ column }) => {
         return (

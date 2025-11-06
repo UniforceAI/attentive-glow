@@ -66,6 +66,10 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
           aVal = a["ID Cliente"];
           bVal = b["ID Cliente"];
           break;
+        case 'solicitante':
+          aVal = a["Solicitante"];
+          bVal = b["Solicitante"];
+          break;
         case 'data':
           const parseDate = (str: string) => {
             const [datePart] = str.split(" ");
@@ -131,6 +135,12 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
                 </TableHead>
                 <TableHead 
                   className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleSort(section, 'solicitante')}
+                >
+                  Nome Completo
+                </TableHead>
+                <TableHead 
+                  className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleSort(section, 'data')}
                 >
                   Data Abertura
@@ -171,6 +181,7 @@ export function InsightsPanel({ chamados }: InsightsPanelProps) {
               {paginatedData.map((c) => (
                 <TableRow key={c.Protocolo}>
                   <TableCell className="font-medium">{c["ID Cliente"]}</TableCell>
+                  <TableCell className="max-w-[180px] truncate">{c["Solicitante"]}</TableCell>
                   <TableCell>{c["Data de Abertura"].split(" ")[0]}</TableCell>
                   <TableCell>{c["Qtd. Chamados"]}</TableCell>
                   <TableCell className="max-w-xs truncate">{c["Motivo do Contato"]}</TableCell>
