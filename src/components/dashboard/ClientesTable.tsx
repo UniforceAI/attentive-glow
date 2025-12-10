@@ -3,13 +3,21 @@ import { Badge } from "@/components/ui/badge";
 import { Chamado } from "@/types/chamado";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Eye, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Eye, ChevronDown, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   useReactTable,
   getCoreRowModel,
@@ -112,7 +120,44 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
   const [columnResizeMode] = useState<ColumnResizeMode>('onChange');
   const [sorting, setSorting] = useState<SortingState>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [nomeFilter, setNomeFilter] = useState("");
+  const [motivoFilter, setMotivoFilter] = useState("todos");
   const ITEMS_PER_PAGE = 100;
+
+  // Extrair motivos únicos dos chamados
+  const motivosUnicos = useMemo(() => {
+    const motivos = new Set<string>();
+    chamados.forEach(c => {
+      if (c["Motivo do Contato"]) {
+        motivos.add(c["Motivo do Contato"]);
+      }
+    });
+    return Array.from(motivos).sort();
+  }, [chamados]);
+
+  // Filtrar chamados por nome e motivo
+  const filteredChamados = useMemo(() => {
+    let filtered = [...chamados];
+    
+    if (nomeFilter.trim()) {
+      const searchLower = nomeFilter.toLowerCase().trim();
+      filtered = filtered.filter(c => 
+        c.Solicitante?.toLowerCase().includes(searchLower) ||
+        String(c["ID Cliente"]).includes(searchLower)
+      );
+    }
+    
+    if (motivoFilter !== "todos") {
+      filtered = filtered.filter(c => c["Motivo do Contato"] === motivoFilter);
+    }
+    
+    return filtered;
+  }, [chamados, nomeFilter, motivoFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [nomeFilter, motivoFilter]);
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -401,14 +446,14 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
     },
   ];
 
-  // Paginação com useMemo
+  // Paginação com useMemo - usar filteredChamados
   const { totalPages, startIdx, endIdx, paginatedChamados } = useMemo(() => {
-    const totalPages = Math.ceil(chamados.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(filteredChamados.length / ITEMS_PER_PAGE);
     const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIdx = startIdx + ITEMS_PER_PAGE;
-    const paginatedChamados = chamados.slice(startIdx, endIdx);
+    const paginatedChamados = filteredChamados.slice(startIdx, endIdx);
     return { totalPages, startIdx, endIdx, paginatedChamados };
-  }, [chamados, currentPage, ITEMS_PER_PAGE]);
+  }, [filteredChamados, currentPage, ITEMS_PER_PAGE]);
 
   const table = useReactTable({
     data: paginatedChamados,
@@ -425,6 +470,64 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
 
   return (
     <div className="rounded-md border bg-card">
+      {/* Filtros de Clientes Críticos */}
+      <div className="p-4 border-b bg-muted/30 flex flex-wrap gap-4 items-end">
+        <div className="flex-1 min-w-[200px] max-w-[300px]">
+          <label className="text-sm font-medium mb-1 block">Buscar Cliente</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Nome ou ID do cliente..."
+              value={nomeFilter}
+              onChange={(e) => setNomeFilter(e.target.value)}
+              className="pl-9 pr-8"
+            />
+            {nomeFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                onClick={() => setNomeFilter("")}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        <div className="min-w-[200px]">
+          <label className="text-sm font-medium mb-1 block">Filtrar por Motivo</label>
+          <Select value={motivoFilter} onValueChange={setMotivoFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos os motivos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os motivos</SelectItem>
+              {motivosUnicos.map(motivo => (
+                <SelectItem key={motivo} value={motivo}>{motivo}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          {filteredChamados.length} de {chamados.length} clientes
+        </div>
+
+        {(nomeFilter || motivoFilter !== "todos") && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setNomeFilter("");
+              setMotivoFilter("todos");
+            }}
+          >
+            Limpar filtros
+          </Button>
+        )}
+      </div>
+      
       <div className="overflow-x-auto">
         <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
           <thead>
@@ -541,7 +644,7 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-4 border-t">
           <p className="text-sm text-muted-foreground">
-            Mostrando {startIdx + 1}-{Math.min(endIdx, chamados.length)} de {chamados.length}
+            Mostrando {startIdx + 1}-{Math.min(endIdx, filteredChamados.length)} de {filteredChamados.length}
           </p>
           <div className="flex gap-2">
             <Button
