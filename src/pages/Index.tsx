@@ -145,19 +145,20 @@ const Index = () => {
     if (periodo !== "todos") {
       const diasAtras = parseInt(periodo);
       const agora = new Date();
+      // SEMPRE zerar horas para comparação correta de datas
+      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0);
       let dataLimite: Date;
       
       if (diasAtras === 0) {
         // Hoje: desde 00:00 de hoje
-        dataLimite = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0);
+        dataLimite = hoje;
       } else if (diasAtras === 1) {
         // Ontem: desde 00:00 de ontem
-        const ontem = new Date(agora);
-        ontem.setDate(ontem.getDate() - 1);
-        dataLimite = new Date(ontem.getFullYear(), ontem.getMonth(), ontem.getDate(), 0, 0, 0);
+        dataLimite = new Date(hoje);
+        dataLimite.setDate(dataLimite.getDate() - 1);
       } else {
-        // X dias atrás
-        dataLimite = new Date();
+        // X dias atrás - IMPORTANTE: zerar horas
+        dataLimite = new Date(hoje);
         dataLimite.setDate(dataLimite.getDate() - diasAtras);
       }
 
@@ -167,7 +168,8 @@ const Index = () => {
           const dataString = c["Data de Abertura"];
           const [datePart] = dataString.split(" "); // Separar data de hora
           const [dia, mes, ano] = datePart.split("/");
-          const dataAbertura = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+          // Criar data zerada (sem horas) para comparação justa
+          const dataAbertura = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 0, 0, 0);
           return dataAbertura >= dataLimite;
         } catch (e) {
           console.error("Erro ao parsear data:", c["Data de Abertura"], e);
