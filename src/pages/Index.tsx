@@ -56,10 +56,13 @@ const Index = () => {
         setIsLoading(true);
         console.log("🔄 Buscando chamados do banco...");
 
-        const { data, error } = await supabase
+        // Buscar TODOS os registros (Supabase tem limite padrão de 1000)
+        // Usar range para buscar mais de 1000 registros
+        const { data, error, count } = await supabase
           .from("chamados")
-          .select("*")
-          .order("data_abertura", { ascending: false });
+          .select("*", { count: "exact" })
+          .order("data_abertura", { ascending: false })
+          .range(0, 9999); // Buscar até 10000 registros
 
         if (error) throw error;
 
@@ -335,19 +338,20 @@ const Index = () => {
     if (periodo !== "todos") {
       const diasAtras = parseInt(periodo);
       const agora = new Date();
+      // SEMPRE zerar horas para comparação correta
+      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0);
       let dataLimite: Date;
       
       if (diasAtras === 0) {
         // Hoje: desde 00:00 de hoje
-        dataLimite = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), 0, 0, 0);
+        dataLimite = hoje;
       } else if (diasAtras === 1) {
         // Ontem: desde 00:00 de ontem
-        const ontem = new Date(agora);
-        ontem.setDate(ontem.getDate() - 1);
-        dataLimite = new Date(ontem.getFullYear(), ontem.getMonth(), ontem.getDate(), 0, 0, 0);
+        dataLimite = new Date(hoje);
+        dataLimite.setDate(dataLimite.getDate() - 1);
       } else {
-        // X dias atrás
-        dataLimite = new Date();
+        // X dias atrás - IMPORTANTE: zerar horas
+        dataLimite = new Date(hoje);
         dataLimite.setDate(dataLimite.getDate() - diasAtras);
       }
 
@@ -356,7 +360,8 @@ const Index = () => {
           const dataString = principal["Data de Abertura"];
           const [datePart] = dataString.split(" ");
           const [dia, mes, ano] = datePart.split("/");
-          const dataAbertura = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+          // Criar data zerada para comparação justa
+          const dataAbertura = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia), 0, 0, 0);
           return dataAbertura >= dataLimite;
         } catch (e) {
           return true;

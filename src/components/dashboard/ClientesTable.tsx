@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import React, { useState, useEffect, useMemo, memo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Chamado } from "@/types/chamado";
 import { cn } from "@/lib/utils";
@@ -572,8 +572,8 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
               const isExpanded = expandedRows.has(chamado._id || chamado.Protocolo);
               
               return (
-                <>
-                  <tr key={row.id} className={cn("border-b transition-colors", getRowColor(chamado.Classificação))}>
+                <React.Fragment key={row.id}>
+                  <tr className={cn("border-b transition-colors", getRowColor(chamado.Classificação))}>
                     {row.getVisibleCells().map(cell => (
                       <td
                         key={cell.id}
@@ -633,7 +633,7 @@ export const ClientesTable = memo(({ chamados, onClienteClick }: ClientesTablePr
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </tbody>
