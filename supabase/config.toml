@@ -1,1 +1,7 @@
 project_id = "rgryzmjqirytaxugxgdx"
+
+[functions.webhook-chamados]
+verify_jwt = false
+
+[functions.sync-chamados]
+verify_jwt = false
