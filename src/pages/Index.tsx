@@ -9,7 +9,7 @@ import { ClientesTable } from "@/components/dashboard/ClientesTable";
 import { ClienteDetailsSheet } from "@/components/dashboard/ClienteDetailsSheet";
 import { PerformanceCharts } from "@/components/dashboard/PerformanceCharts";
 import { InsightsPanel } from "@/components/dashboard/InsightsPanel";
-import { Phone, Clock, RefreshCcw, CheckCircle2, AlertCircle, BarChart3, Download } from "lucide-react";
+import { Phone, Clock, RefreshCcw, CheckCircle2, AlertCircle, BarChart3 } from "lucide-react";
 
 const Index = () => {
   const { toast } = useToast();
@@ -17,7 +17,7 @@ const Index = () => {
   const [selectedCliente, setSelectedCliente] = useState<Chamado | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
+  
 
   // Filtros
   const [periodo, setPeriodo] = useState("7");
@@ -400,39 +400,6 @@ const Index = () => {
       .sort((a, b) => b["Qtd. Chamados"] - a["Qtd. Chamados"]);
   }, [chamados, periodo, status, urgencia, setor]);
 
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      toast({
-        title: "Sincronizando...",
-        description: "Buscando dados do projeto fonte. Isso pode levar alguns segundos.",
-      });
-
-      const { data, error } = await supabase.functions.invoke("sync-chamados");
-
-      if (error) throw error;
-
-      if (data.success) {
-        toast({
-          title: "Sincronização concluída!",
-          description: `${data.synced} chamados sincronizados com sucesso.`,
-        });
-        // Recarregar a página para ver os novos dados
-        window.location.reload();
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error: any) {
-      console.error("Erro na sincronização:", error);
-      toast({
-        title: "Erro na sincronização",
-        description: error.message || "Não foi possível sincronizar os dados.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -446,20 +413,9 @@ const Index = () => {
               </h1>
               <p className="text-muted-foreground mt-1">Agy Telecom</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <BarChart3 className="h-5 w-5" />
-                <span>Atualizado em tempo real</span>
-              </div>
-              <Button 
-                variant="outline" 
-                onClick={handleSync} 
-                disabled={isSyncing}
-                className="gap-2"
-              >
-                <Download className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? "Sincronizando..." : "Sincronizar Dados"}
-              </Button>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <BarChart3 className="h-5 w-5" />
+              <span>Atualizado em tempo real</span>
             </div>
           </div>
         </div>
