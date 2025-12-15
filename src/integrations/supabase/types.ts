@@ -14,75 +14,213 @@ export type Database = {
   }
   public: {
     Tables: {
-      chamados: {
+      eventos: {
         Row: {
-          categoria: string
-          chamados_anteriores: string
-          classificacao: string
+          acao_recomendada_1: string | null
+          acao_recomendada_2: string | null
+          acao_recomendada_3: string | null
+          alerta_tipo: string | null
+          assunto: string | null
+          atendimento_id: number | null
+          atendimento_status: string | null
+          categoria: string | null
+          churn_risk_bucket: string | null
+          churn_risk_score: number | null
+          cliente_celular: string | null
+          cliente_cidade: string | null
+          cliente_data_cadastro: string | null
+          cliente_documento: string | null
+          cliente_email: string | null
+          cliente_id: number
+          cliente_nome: string
+          cliente_segmento: string | null
+          cliente_tipo_pessoa: string | null
+          cliente_uf: string | null
+          cobranca_id: number | null
+          cobranca_status: string | null
+          cobranca_status_codigo: number | null
           created_at: string
-          data_abertura: string
-          dias_desde_ultimo: number | null
+          data_gerado: string | null
+          data_instalacao: string | null
+          data_pagamento: string | null
+          data_vencimento: string | null
+          dia_vencimento: number | null
+          dias_atraso: number | null
+          downtime_min_24h: number | null
+          event_datetime: string
+          event_id: number
+          event_type: string
           id: string
-          id_cliente: number
-          insight: string
-          motivo_contato: string
-          origem: string
-          protocolo: string
-          qtd_chamados: number
-          responsavel: string
-          setor: string
-          solicitante: string
-          status: string
-          tempo_atendimento: string
-          ultima_atualizacao: string
+          inadimplencia_bucket: string | null
+          inadimplencia_risk_score: number | null
+          jitter_ms: number | null
+          latency_ms: number | null
+          mes_referencia: string | null
+          metodo_cobranca: string | null
+          motivo_contato: string | null
+          nps_comment: string | null
+          nps_score: number | null
+          origem: string | null
+          packet_loss_pct: number | null
+          plano_nome: string | null
+          protocolo: string | null
+          reincidente_30d: boolean | null
+          resolvido_primeiro_contato: boolean | null
+          rx_dbm: number | null
+          servico_id: number | null
+          servico_status: string | null
+          servico_status_codigo: number | null
+          setor: string | null
+          snr_db: number | null
+          tempo_atendimento_min: number | null
+          tipo_servico: string | null
+          tx_dbm: number | null
           updated_at: string
-          urgencia: string
+          urgencia: string | null
+          valor_cobranca: number | null
+          valor_mensalidade: number | null
+          valor_pago: number | null
+          velocidade_down_mbps: number | null
+          velocidade_up_mbps: number | null
+          vencido: boolean | null
         }
         Insert: {
-          categoria: string
-          chamados_anteriores: string
-          classificacao: string
+          acao_recomendada_1?: string | null
+          acao_recomendada_2?: string | null
+          acao_recomendada_3?: string | null
+          alerta_tipo?: string | null
+          assunto?: string | null
+          atendimento_id?: number | null
+          atendimento_status?: string | null
+          categoria?: string | null
+          churn_risk_bucket?: string | null
+          churn_risk_score?: number | null
+          cliente_celular?: string | null
+          cliente_cidade?: string | null
+          cliente_data_cadastro?: string | null
+          cliente_documento?: string | null
+          cliente_email?: string | null
+          cliente_id: number
+          cliente_nome: string
+          cliente_segmento?: string | null
+          cliente_tipo_pessoa?: string | null
+          cliente_uf?: string | null
+          cobranca_id?: number | null
+          cobranca_status?: string | null
+          cobranca_status_codigo?: number | null
           created_at?: string
-          data_abertura: string
-          dias_desde_ultimo?: number | null
+          data_gerado?: string | null
+          data_instalacao?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          dia_vencimento?: number | null
+          dias_atraso?: number | null
+          downtime_min_24h?: number | null
+          event_datetime: string
+          event_id: number
+          event_type: string
           id?: string
-          id_cliente: number
-          insight: string
-          motivo_contato: string
-          origem: string
-          protocolo: string
-          qtd_chamados: number
-          responsavel: string
-          setor: string
-          solicitante: string
-          status: string
-          tempo_atendimento: string
-          ultima_atualizacao: string
+          inadimplencia_bucket?: string | null
+          inadimplencia_risk_score?: number | null
+          jitter_ms?: number | null
+          latency_ms?: number | null
+          mes_referencia?: string | null
+          metodo_cobranca?: string | null
+          motivo_contato?: string | null
+          nps_comment?: string | null
+          nps_score?: number | null
+          origem?: string | null
+          packet_loss_pct?: number | null
+          plano_nome?: string | null
+          protocolo?: string | null
+          reincidente_30d?: boolean | null
+          resolvido_primeiro_contato?: boolean | null
+          rx_dbm?: number | null
+          servico_id?: number | null
+          servico_status?: string | null
+          servico_status_codigo?: number | null
+          setor?: string | null
+          snr_db?: number | null
+          tempo_atendimento_min?: number | null
+          tipo_servico?: string | null
+          tx_dbm?: number | null
           updated_at?: string
-          urgencia: string
+          urgencia?: string | null
+          valor_cobranca?: number | null
+          valor_mensalidade?: number | null
+          valor_pago?: number | null
+          velocidade_down_mbps?: number | null
+          velocidade_up_mbps?: number | null
+          vencido?: boolean | null
         }
         Update: {
-          categoria?: string
-          chamados_anteriores?: string
-          classificacao?: string
+          acao_recomendada_1?: string | null
+          acao_recomendada_2?: string | null
+          acao_recomendada_3?: string | null
+          alerta_tipo?: string | null
+          assunto?: string | null
+          atendimento_id?: number | null
+          atendimento_status?: string | null
+          categoria?: string | null
+          churn_risk_bucket?: string | null
+          churn_risk_score?: number | null
+          cliente_celular?: string | null
+          cliente_cidade?: string | null
+          cliente_data_cadastro?: string | null
+          cliente_documento?: string | null
+          cliente_email?: string | null
+          cliente_id?: number
+          cliente_nome?: string
+          cliente_segmento?: string | null
+          cliente_tipo_pessoa?: string | null
+          cliente_uf?: string | null
+          cobranca_id?: number | null
+          cobranca_status?: string | null
+          cobranca_status_codigo?: number | null
           created_at?: string
-          data_abertura?: string
-          dias_desde_ultimo?: number | null
+          data_gerado?: string | null
+          data_instalacao?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string | null
+          dia_vencimento?: number | null
+          dias_atraso?: number | null
+          downtime_min_24h?: number | null
+          event_datetime?: string
+          event_id?: number
+          event_type?: string
           id?: string
-          id_cliente?: number
-          insight?: string
-          motivo_contato?: string
-          origem?: string
-          protocolo?: string
-          qtd_chamados?: number
-          responsavel?: string
-          setor?: string
-          solicitante?: string
-          status?: string
-          tempo_atendimento?: string
-          ultima_atualizacao?: string
+          inadimplencia_bucket?: string | null
+          inadimplencia_risk_score?: number | null
+          jitter_ms?: number | null
+          latency_ms?: number | null
+          mes_referencia?: string | null
+          metodo_cobranca?: string | null
+          motivo_contato?: string | null
+          nps_comment?: string | null
+          nps_score?: number | null
+          origem?: string | null
+          packet_loss_pct?: number | null
+          plano_nome?: string | null
+          protocolo?: string | null
+          reincidente_30d?: boolean | null
+          resolvido_primeiro_contato?: boolean | null
+          rx_dbm?: number | null
+          servico_id?: number | null
+          servico_status?: string | null
+          servico_status_codigo?: number | null
+          setor?: string | null
+          snr_db?: number | null
+          tempo_atendimento_min?: number | null
+          tipo_servico?: string | null
+          tx_dbm?: number | null
           updated_at?: string
-          urgencia?: string
+          urgencia?: string | null
+          valor_cobranca?: number | null
+          valor_mensalidade?: number | null
+          valor_pago?: number | null
+          velocidade_down_mbps?: number | null
+          velocidade_up_mbps?: number | null
+          vencido?: boolean | null
         }
         Relationships: []
       }
