@@ -139,7 +139,15 @@ export function useEventos() {
   };
 
   useEffect(() => {
-    fetchEventos();
+    const initData = async () => {
+      const { count } = await supabase.from('eventos').select('*', { count: 'exact', head: true });
+      if (!count || count === 0) {
+        await loadFromFile();
+      } else {
+        await fetchEventos();
+      }
+    };
+    initData();
   }, []);
 
   return { eventos, isLoading, fetchEventos, loadFromFile };
