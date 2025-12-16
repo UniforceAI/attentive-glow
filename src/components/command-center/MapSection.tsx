@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Evento, ClienteRisco, ClienteCobranca } from "@/types/evento";
-import { MapPin, AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, Navigation2, Layers } from "lucide-react";
+import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, Navigation2, Layers } from "lucide-react";
 
 interface MapSectionProps {
   filaRisco: ClienteRisco[];
@@ -18,42 +18,30 @@ const metrics = [
   { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw },
 ] as const;
 
-// Brazil states with approximate SVG coordinates and paths
-const brazilStates: Record<string, { cx: number; cy: number; path: string; name: string }> = {
-  'AC': { cx: 95, cy: 235, path: 'M70,220 L120,215 L125,250 L75,255 Z', name: 'Acre' },
-  'AM': { cx: 170, cy: 185, path: 'M100,140 L240,130 L250,220 L110,235 Z', name: 'Amazonas' },
-  'AP': { cx: 310, cy: 95, path: 'M290,60 L340,55 L350,120 L295,125 Z', name: 'Amapá' },
-  'PA': { cx: 320, cy: 175, path: 'M250,120 L420,110 L430,230 L255,240 Z', name: 'Pará' },
-  'RO': { cx: 150, cy: 265, path: 'M120,245 L185,240 L190,290 L125,295 Z', name: 'Rondônia' },
-  'RR': { cx: 195, cy: 95, path: 'M165,50 L230,45 L235,130 L170,135 Z', name: 'Roraima' },
-  'TO': { cx: 375, cy: 260, path: 'M350,210 L400,205 L410,310 L355,315 Z', name: 'Tocantins' },
-  'MA': { cx: 430, cy: 175, path: 'M395,140 L475,130 L485,215 L400,225 Z', name: 'Maranhão' },
-  'PI': { cx: 460, cy: 230, path: 'M430,190 L495,185 L500,275 L435,280 Z', name: 'Piauí' },
-  'CE': { cx: 520, cy: 175, path: 'M490,145 L555,140 L560,210 L495,215 Z', name: 'Ceará' },
-  'RN': { cx: 565, cy: 175, path: 'M545,155 L595,150 L600,200 L550,205 Z', name: 'Rio Grande do Norte' },
-  'PB': { cx: 575, cy: 210, path: 'M545,195 L610,190 L615,230 L550,235 Z', name: 'Paraíba' },
-  'PE': { cx: 560, cy: 245, path: 'M510,225 L615,220 L620,265 L515,270 Z', name: 'Pernambuco' },
-  'AL': { cx: 580, cy: 280, path: 'M555,265 L610,260 L615,300 L560,305 Z', name: 'Alagoas' },
-  'SE': { cx: 565, cy: 310, path: 'M545,295 L590,290 L595,330 L550,335 Z', name: 'Sergipe' },
-  'BA': { cx: 480, cy: 320, path: 'M410,265 L560,255 L570,390 L420,400 Z', name: 'Bahia' },
-  'MT': { cx: 260, cy: 305, path: 'M185,260 L360,250 L370,360 L195,370 Z', name: 'Mato Grosso' },
-  'GO': { cx: 375, cy: 355, path: 'M330,320 L430,315 L440,400 L340,405 Z', name: 'Goiás' },
-  'DF': { cx: 395, cy: 365, path: 'M385,355 L410,353 L412,378 L387,380 Z', name: 'Distrito Federal' },
-  'MS': { cx: 275, cy: 400, path: 'M230,365 L330,360 L340,450 L240,455 Z', name: 'Mato Grosso do Sul' },
-  'MG': { cx: 455, cy: 405, path: 'M390,365 L540,355 L550,455 L400,465 Z', name: 'Minas Gerais' },
-  'ES': { cx: 545, cy: 420, path: 'M525,395 L575,390 L580,450 L530,455 Z', name: 'Espírito Santo' },
-  'RJ': { cx: 510, cy: 465, path: 'M475,445 L545,440 L550,490 L480,495 Z', name: 'Rio de Janeiro' },
-  'SP': { cx: 410, cy: 465, path: 'M350,440 L475,435 L480,505 L355,510 Z', name: 'São Paulo' },
-  'PR': { cx: 355, cy: 505, path: 'M305,485 L420,480 L425,540 L310,545 Z', name: 'Paraná' },
-  'SC': { cx: 355, cy: 555, path: 'M320,540 L400,537 L405,580 L325,583 Z', name: 'Santa Catarina' },
-  'RS': { cx: 330, cy: 605, path: 'M280,575 L395,570 L400,650 L285,655 Z', name: 'Rio Grande do Sul' },
-};
+// Ceará regions/cities with approximate positions
+const cearaRegions = [
+  { id: 'fortaleza', name: 'Fortaleza', cx: 520, cy: 120, size: 'lg' },
+  { id: 'caucaia', name: 'Caucaia', cx: 460, cy: 135, size: 'md' },
+  { id: 'maracanau', name: 'Maracanaú', cx: 485, cy: 155, size: 'md' },
+  { id: 'juazeiro', name: 'Juazeiro do Norte', cx: 280, cy: 380, size: 'lg' },
+  { id: 'sobral', name: 'Sobral', cx: 200, cy: 150, size: 'lg' },
+  { id: 'crato', name: 'Crato', cx: 260, cy: 400, size: 'md' },
+  { id: 'itapipoca', name: 'Itapipoca', cx: 350, cy: 110, size: 'sm' },
+  { id: 'maranguape', name: 'Maranguape', cx: 470, cy: 170, size: 'sm' },
+  { id: 'iguatu', name: 'Iguatu', cx: 280, cy: 320, size: 'md' },
+  { id: 'quixada', name: 'Quixadá', cx: 380, cy: 220, size: 'sm' },
+  { id: 'caninde', name: 'Canindé', cx: 340, cy: 180, size: 'sm' },
+  { id: 'aracati', name: 'Aracati', cx: 580, cy: 200, size: 'sm' },
+  { id: 'russas', name: 'Russas', cx: 520, cy: 230, size: 'sm' },
+  { id: 'limoeiro', name: 'Limoeiro do Norte', cx: 490, cy: 260, size: 'sm' },
+  { id: 'tiangua', name: 'Tianguá', cx: 140, cy: 130, size: 'sm' },
+  { id: 'crateus', name: 'Crateús', cx: 180, cy: 250, size: 'md' },
+];
 
 interface DataPoint {
   id: string;
   x: number;
   y: number;
-  uf: string;
   cliente: string;
   cidade: string;
   value: number;
@@ -62,41 +50,118 @@ interface DataPoint {
 
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
   const [hoveredPoint, setHoveredPoint] = useState<DataPoint | null>(null);
-  const [hoveredState, setHoveredState] = useState<string | null>(null);
 
-  // Count events per state for heatmap
-  const stateStats = useMemo(() => {
-    const stats: Record<string, { total: number; critical: number; high: number }> = {};
-    eventos.forEach(e => {
-      const uf = e.cliente_uf;
-      if (uf && brazilStates[uf]) {
-        if (!stats[uf]) stats[uf] = { total: 0, critical: 0, high: 0 };
-        stats[uf].total++;
-        
-        if (metric === 'churn' && (e.churn_risk_score || 0) >= 80) stats[uf].critical++;
-        else if (metric === 'churn' && (e.churn_risk_score || 0) >= 60) stats[uf].high++;
-        else if (metric === 'vencido' && (e.dias_atraso || 0) >= 30) stats[uf].critical++;
-        else if (metric === 'vencido' && (e.dias_atraso || 0) >= 15) stats[uf].high++;
+  // Generate Ceará road network
+  const roads = useMemo(() => {
+    const r: { x1: number; y1: number; x2: number; y2: number; type: 'highway' | 'main' | 'secondary' | 'local' }[] = [];
+    
+    // BR-116 (Fortaleza - Juazeiro)
+    r.push({ x1: 520, y1: 120, x2: 280, y2: 380, type: 'highway' });
+    // BR-222 (Fortaleza - Sobral - Tianguá)
+    r.push({ x1: 520, y1: 120, x2: 200, y2: 150, type: 'highway' });
+    r.push({ x1: 200, y1: 150, x2: 140, y2: 130, type: 'highway' });
+    // CE-060 (Fortaleza - Baturité)
+    r.push({ x1: 520, y1: 120, x2: 450, y2: 200, type: 'highway' });
+    // BR-020 (Fortaleza - Canindé - Crateús)
+    r.push({ x1: 520, y1: 120, x2: 340, y2: 180, type: 'highway' });
+    r.push({ x1: 340, y1: 180, x2: 180, y2: 250, type: 'highway' });
+    // CE-040 (Fortaleza - Aracati)
+    r.push({ x1: 520, y1: 120, x2: 580, y2: 200, type: 'highway' });
+    // BR-304 (Aracati - Russas - Limoeiro)
+    r.push({ x1: 580, y1: 200, x2: 520, y2: 230, type: 'highway' });
+    r.push({ x1: 520, y1: 230, x2: 490, y2: 260, type: 'highway' });
+    // CE-292 (Iguatu - Juazeiro)
+    r.push({ x1: 280, y1: 320, x2: 280, y2: 380, type: 'highway' });
+
+    // Main roads connecting cities
+    const mainConnections = [
+      [460, 135, 485, 155], [485, 155, 470, 170], [350, 110, 200, 150],
+      [380, 220, 340, 180], [380, 220, 280, 320], [260, 400, 280, 380],
+      [520, 230, 380, 220], [490, 260, 280, 320],
+    ];
+    mainConnections.forEach(([x1, y1, x2, y2]) => {
+      r.push({ x1, y1, x2, y2, type: 'main' });
+    });
+
+    // Secondary roads - create a network
+    for (let i = 0; i < 30; i++) {
+      const region = cearaRegions[Math.floor(Math.random() * cearaRegions.length)];
+      const length = 40 + Math.random() * 60;
+      const angle = Math.random() * Math.PI * 2;
+      r.push({
+        x1: region.cx + (Math.random() - 0.5) * 40,
+        y1: region.cy + (Math.random() - 0.5) * 40,
+        x2: region.cx + Math.cos(angle) * length,
+        y2: region.cy + Math.sin(angle) * length,
+        type: 'secondary'
+      });
+    }
+
+    // Local streets around cities
+    for (let i = 0; i < 80; i++) {
+      const region = cearaRegions[Math.floor(Math.random() * cearaRegions.length)];
+      const spread = region.size === 'lg' ? 50 : region.size === 'md' ? 30 : 20;
+      const length = 10 + Math.random() * 25;
+      const angle = Math.random() * Math.PI * 2;
+      const startX = region.cx + (Math.random() - 0.5) * spread;
+      const startY = region.cy + (Math.random() - 0.5) * spread;
+      r.push({
+        x1: startX,
+        y1: startY,
+        x2: startX + Math.cos(angle) * length,
+        y2: startY + Math.sin(angle) * length,
+        type: 'local'
+      });
+    }
+
+    return r;
+  }, []);
+
+  // City blocks around main cities
+  const blocks = useMemo(() => {
+    const b: { x: number; y: number; w: number; h: number; opacity: number }[] = [];
+    cearaRegions.forEach(region => {
+      const count = region.size === 'lg' ? 12 : region.size === 'md' ? 6 : 3;
+      const spread = region.size === 'lg' ? 45 : region.size === 'md' ? 25 : 15;
+      for (let i = 0; i < count; i++) {
+        b.push({
+          x: region.cx + (Math.random() - 0.5) * spread * 2,
+          y: region.cy + (Math.random() - 0.5) * spread * 2,
+          w: 8 + Math.random() * 15,
+          h: 6 + Math.random() * 12,
+          opacity: 0.03 + Math.random() * 0.05
+        });
       }
     });
-    return stats;
-  }, [eventos, metric]);
-
-  const maxTotal = Math.max(...Object.values(stateStats).map(s => s.total), 1);
+    return b;
+  }, []);
 
   const dataPoints = useMemo((): DataPoint[] => {
     const points: DataPoint[] = [];
     
-    const generatePointInState = (uf: string, index: number): { x: number; y: number } | null => {
-      const state = brazilStates[uf];
-      if (!state) return null;
+    const generatePointNearCity = (index: number): { x: number; y: number; cidade: string } => {
+      // Weight distribution - more points around Fortaleza
+      const weights = cearaRegions.map(r => r.size === 'lg' ? 4 : r.size === 'md' ? 2 : 1);
+      const totalWeight = weights.reduce((a, b) => a + b, 0);
+      let rand = Math.random() * totalWeight;
+      let region = cearaRegions[0];
       
-      const spread = 25;
-      const angle = (index * 137.5 * Math.PI / 180); // Golden angle for nice distribution
-      const radius = 5 + (index % 5) * 4;
+      for (let i = 0; i < cearaRegions.length; i++) {
+        rand -= weights[i];
+        if (rand <= 0) {
+          region = cearaRegions[i];
+          break;
+        }
+      }
+      
+      const spread = region.size === 'lg' ? 40 : region.size === 'md' ? 25 : 15;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * spread;
+      
       return {
-        x: state.cx + Math.cos(angle) * radius,
-        y: state.cy + Math.sin(angle) * radius
+        x: region.cx + Math.cos(angle) * dist,
+        y: region.cy + Math.sin(angle) * dist,
+        cidade: region.name
       };
     };
 
@@ -107,80 +172,75 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
       return 'low';
     };
     
-    const stateCounters: Record<string, number> = {};
-    
-    const processEvent = (e: any, getValue: () => { value: number; severity: 'low' | 'medium' | 'high' | 'critical' }) => {
-      const uf = e.cliente_uf;
-      if (!uf || !brazilStates[uf]) return;
-      
-      stateCounters[uf] = (stateCounters[uf] || 0) + 1;
-      if (stateCounters[uf] > 8) return; // Max 8 points per state for visibility
-      
-      const pos = generatePointInState(uf, stateCounters[uf]);
-      if (!pos) return;
-      
-      const { value, severity } = getValue();
-      points.push({
-        id: `${e.cliente_id}-${e.event_id}`,
-        ...pos,
-        uf,
-        cliente: e.cliente_nome,
-        cidade: e.cliente_cidade || '',
-        value,
-        severity
-      });
-    };
-
     switch (metric) {
       case 'churn':
-        filaRisco.slice(0, 100).forEach((c, i) => {
-          const uf = eventos.find(e => String(e.cliente_id) === String(c.cliente_id))?.cliente_uf;
-          if (!uf || !brazilStates[uf]) return;
-          stateCounters[uf] = (stateCounters[uf] || 0) + 1;
-          if (stateCounters[uf] > 8) return;
-          const pos = generatePointInState(uf, stateCounters[uf]);
-          if (!pos) return;
+        filaRisco.slice(0, 50).forEach((c, i) => {
+          const pos = generatePointNearCity(i);
           points.push({
             id: c.cliente_id,
-            ...pos,
-            uf,
+            x: pos.x,
+            y: pos.y,
             cliente: c.cliente_nome,
-            cidade: c.cidade,
+            cidade: c.cidade || pos.cidade,
             value: c.score,
             severity: getSeverity(c.score)
           });
         });
         break;
       case 'vencido':
-        eventos.filter(e => e.cobranca_status === 'Vencido').slice(0, 100).forEach(e => {
-          processEvent(e, () => ({
+        eventos.filter(e => e.cobranca_status === 'Vencido').slice(0, 50).forEach((e, i) => {
+          const pos = generatePointNearCity(i);
+          points.push({
+            id: `${e.cliente_id}-${e.event_id}`,
+            x: pos.x,
+            y: pos.y,
+            cliente: e.cliente_nome,
+            cidade: e.cliente_cidade || pos.cidade,
             value: e.valor_cobranca || 0,
             severity: (e.dias_atraso || 0) > 30 ? 'critical' : (e.dias_atraso || 0) > 15 ? 'high' : 'medium'
-          }));
+          });
         });
         break;
       case 'sinal':
-        eventos.filter(e => e.alerta_tipo === 'Sinal crítico').slice(0, 100).forEach(e => {
-          processEvent(e, () => ({
+        eventos.filter(e => e.alerta_tipo === 'Sinal crítico').slice(0, 50).forEach((e, i) => {
+          const pos = generatePointNearCity(i);
+          points.push({
+            id: `${e.cliente_id}-${e.event_id}`,
+            x: pos.x,
+            y: pos.y,
+            cliente: e.cliente_nome,
+            cidade: e.cliente_cidade || pos.cidade,
             value: Math.abs(e.rx_dbm || -25),
             severity: (e.rx_dbm || -20) < -28 ? 'critical' : 'high'
-          }));
+          });
         });
         break;
       case 'detrator':
-        eventos.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).slice(0, 100).forEach(e => {
-          processEvent(e, () => ({
+        eventos.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).slice(0, 50).forEach((e, i) => {
+          const pos = generatePointNearCity(i);
+          points.push({
+            id: `${e.cliente_id}-${e.event_id}`,
+            x: pos.x,
+            y: pos.y,
+            cliente: e.cliente_nome,
+            cidade: e.cliente_cidade || pos.cidade,
             value: e.nps_score || 0,
             severity: (e.nps_score || 0) <= 3 ? 'critical' : 'high'
-          }));
+          });
         });
         break;
       case 'reincidencia':
-        eventos.filter(e => e.reincidente_30d === true).slice(0, 100).forEach(e => {
-          processEvent(e, () => ({
+        eventos.filter(e => e.reincidente_30d === true).slice(0, 50).forEach((e, i) => {
+          const pos = generatePointNearCity(i);
+          points.push({
+            id: `${e.cliente_id}-${e.event_id}`,
+            x: pos.x,
+            y: pos.y,
+            cliente: e.cliente_nome,
+            cidade: e.cliente_cidade || pos.cidade,
             value: 1,
             severity: 'high'
-          }));
+          });
         });
         break;
     }
@@ -200,18 +260,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     high: dataPoints.filter(p => p.severity === 'high').length,
     medium: dataPoints.filter(p => p.severity === 'medium').length,
     low: dataPoints.filter(p => p.severity === 'low').length,
-    total: dataPoints.length,
-    states: Object.keys(stateStats).length
-  }), [dataPoints, stateStats]);
-
-  const getStateColor = (uf: string) => {
-    const stat = stateStats[uf];
-    if (!stat) return 'rgba(14, 165, 233, 0.03)';
-    const intensity = stat.total / maxTotal;
-    if (stat.critical > 0) return `rgba(239, 68, 68, ${0.1 + intensity * 0.25})`;
-    if (stat.high > 0) return `rgba(245, 158, 11, ${0.08 + intensity * 0.2})`;
-    return `rgba(14, 165, 233, ${0.05 + intensity * 0.15})`;
-  };
+    total: dataPoints.length
+  }), [dataPoints]);
 
   return (
     <div className="bg-[#0a1628] border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
@@ -222,8 +272,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             <Navigation2 className="h-4 w-4 text-cyan-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-white text-sm">Mapa Brasil - Área de Atuação</h3>
-            <p className="text-[11px] text-slate-400">{stats.states} estados • {stats.total} alertas ativos</p>
+            <h3 className="font-semibold text-white text-sm">Mapa de Operações — Ceará</h3>
+            <p className="text-[11px] text-slate-400">{stats.total} alertas • {stats.critical} críticos • {stats.high} altos</p>
           </div>
         </div>
         
@@ -253,13 +303,13 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
       {/* Map Container */}
       <div className="relative">
         <svg 
-          viewBox="0 0 700 700" 
-          className="w-full h-[450px] md:h-[520px]"
+          viewBox="0 0 700 480" 
+          className="w-full h-[420px] md:h-[500px]"
           style={{ background: 'linear-gradient(135deg, #0a1628 0%, #0d1f35 50%, #0a1628 100%)' }}
         >
           <defs>
-            <filter id="stateGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
+            <filter id="roadGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -282,80 +332,149 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
               </feMerge>
             </filter>
 
-            {/* State border gradient */}
-            <linearGradient id="stateBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0891b2" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.3" />
+            <linearGradient id="highwayGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0891b2" stopOpacity="0.9" />
+              <stop offset="50%" stopColor="#06b6d4" stopOpacity="1" />
+              <stop offset="100%" stopColor="#0891b2" stopOpacity="0.9" />
             </linearGradient>
+
+            {/* Ceará state outline (simplified) */}
+            <clipPath id="cearaClip">
+              <path d="M80,80 Q150,50 300,60 Q450,50 600,80 Q650,120 620,200 Q600,280 580,350 Q500,420 400,450 Q300,460 220,440 Q150,400 120,350 Q90,280 80,200 Q70,120 80,80 Z" />
+            </clipPath>
           </defs>
 
-          {/* Grid background */}
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e3a5f" strokeWidth="0.3" />
+          {/* Background grid */}
+          <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e3a5f" strokeWidth="0.3" />
           </pattern>
-          <rect width="100%" height="100%" fill="url(#grid)" opacity="0.5" />
+          <rect width="100%" height="100%" fill="url(#grid)" opacity="0.4" />
 
-          {/* Brazil States */}
-          {Object.entries(brazilStates).map(([uf, state]) => {
-            const isHovered = hoveredState === uf;
-            const hasStat = stateStats[uf];
-            
-            return (
-              <g key={uf}>
-                {/* State shape */}
-                <path
-                  d={state.path}
-                  fill={getStateColor(uf)}
-                  stroke={isHovered ? '#22d3ee' : '#0891b2'}
-                  strokeWidth={isHovered ? 2 : 0.8}
-                  strokeOpacity={isHovered ? 1 : 0.4}
-                  className="cursor-pointer transition-all duration-200"
-                  onMouseEnter={() => setHoveredState(uf)}
-                  onMouseLeave={() => setHoveredState(null)}
-                  filter={isHovered ? 'url(#stateGlow)' : undefined}
-                />
-                
-                {/* State label */}
-                <text
-                  x={state.cx}
-                  y={state.cy}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill={isHovered ? '#22d3ee' : '#64748b'}
-                  fontSize="10"
-                  fontWeight="600"
-                  className="pointer-events-none select-none transition-colors duration-200"
-                >
-                  {uf}
-                </text>
-                
-                {/* State count badge */}
-                {hasStat && hasStat.total > 0 && (
-                  <g>
-                    <circle
-                      cx={state.cx + 18}
-                      cy={state.cy - 12}
-                      r="10"
-                      fill={hasStat.critical > 0 ? '#ef4444' : hasStat.high > 0 ? '#f59e0b' : '#0ea5e9'}
-                      opacity="0.9"
-                    />
-                    <text
-                      x={state.cx + 18}
-                      y={state.cy - 11}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="white"
-                      fontSize="8"
-                      fontWeight="bold"
-                      className="pointer-events-none"
-                    >
-                      {hasStat.total > 99 ? '99+' : hasStat.total}
-                    </text>
-                  </g>
-                )}
-              </g>
-            );
-          })}
+          {/* Ceará state subtle outline */}
+          <path 
+            d="M80,80 Q150,50 300,60 Q450,50 600,80 Q650,120 620,200 Q600,280 580,350 Q500,420 400,450 Q300,460 220,440 Q150,400 120,350 Q90,280 80,200 Q70,120 80,80 Z"
+            fill="rgba(14, 165, 233, 0.03)"
+            stroke="#0891b2"
+            strokeWidth="1"
+            strokeOpacity="0.2"
+          />
+
+          {/* City blocks */}
+          {blocks.map((block, i) => (
+            <rect
+              key={`block-${i}`}
+              x={block.x}
+              y={block.y}
+              width={block.w}
+              height={block.h}
+              fill="#0ea5e9"
+              opacity={block.opacity}
+              rx="1"
+            />
+          ))}
+
+          {/* Local streets */}
+          {roads.filter(r => r.type === 'local').map((road, i) => (
+            <line
+              key={`local-${i}`}
+              x1={road.x1}
+              y1={road.y1}
+              x2={road.x2}
+              y2={road.y2}
+              stroke="#0e7490"
+              strokeWidth="0.5"
+              strokeOpacity="0.3"
+              strokeLinecap="round"
+            />
+          ))}
+
+          {/* Secondary roads */}
+          {roads.filter(r => r.type === 'secondary').map((road, i) => (
+            <line
+              key={`secondary-${i}`}
+              x1={road.x1}
+              y1={road.y1}
+              x2={road.x2}
+              y2={road.y2}
+              stroke="#0891b2"
+              strokeWidth="1"
+              strokeOpacity="0.4"
+              strokeLinecap="round"
+            />
+          ))}
+
+          {/* Main roads */}
+          {roads.filter(r => r.type === 'main').map((road, i) => (
+            <line
+              key={`main-${i}`}
+              x1={road.x1}
+              y1={road.y1}
+              x2={road.x2}
+              y2={road.y2}
+              stroke="#0ea5e9"
+              strokeWidth="1.5"
+              strokeOpacity="0.6"
+              strokeLinecap="round"
+              filter="url(#roadGlow)"
+            />
+          ))}
+
+          {/* Highways */}
+          {roads.filter(r => r.type === 'highway').map((road, i) => (
+            <g key={`highway-${i}`}>
+              <line
+                x1={road.x1}
+                y1={road.y1}
+                x2={road.x2}
+                y2={road.y2}
+                stroke="#06b6d4"
+                strokeWidth="4"
+                strokeOpacity="0.15"
+                strokeLinecap="round"
+              />
+              <line
+                x1={road.x1}
+                y1={road.y1}
+                x2={road.x2}
+                y2={road.y2}
+                stroke="url(#highwayGradient)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                filter="url(#roadGlow)"
+              />
+            </g>
+          ))}
+
+          {/* City labels */}
+          {cearaRegions.map((region) => (
+            <g key={region.id}>
+              <circle
+                cx={region.cx}
+                cy={region.cy}
+                r={region.size === 'lg' ? 18 : region.size === 'md' ? 12 : 8}
+                fill="#0ea5e9"
+                opacity="0.08"
+              />
+              <circle
+                cx={region.cx}
+                cy={region.cy}
+                r="3"
+                fill="#22d3ee"
+                opacity="0.6"
+              />
+              <text
+                x={region.cx}
+                y={region.cy + (region.size === 'lg' ? 28 : region.size === 'md' ? 22 : 18)}
+                textAnchor="middle"
+                fill="#64748b"
+                fontSize={region.size === 'lg' ? "10" : "8"}
+                fontWeight="500"
+                className="select-none"
+              >
+                {region.name}
+              </text>
+            </g>
+          ))}
 
           {/* Connection lines between critical points */}
           {dataPoints
@@ -388,7 +507,6 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             })}
 
           {/* Data points by severity */}
-          {/* Low severity */}
           {dataPoints.filter(p => p.severity === 'low').map((point) => (
             <g 
               key={`low-${point.id}`}
@@ -400,7 +518,6 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             </g>
           ))}
 
-          {/* Medium severity */}
           {dataPoints.filter(p => p.severity === 'medium').map((point) => (
             <g 
               key={`medium-${point.id}`}
@@ -413,7 +530,6 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             </g>
           ))}
 
-          {/* High severity */}
           {dataPoints.filter(p => p.severity === 'high').map((point) => (
             <g 
               key={`high-${point.id}`}
@@ -426,7 +542,6 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             </g>
           ))}
 
-          {/* Critical - with pulse animation */}
           {dataPoints.filter(p => p.severity === 'critical').map((point) => (
             <g 
               key={`critical-${point.id}`}
@@ -450,7 +565,7 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             className="absolute z-30 pointer-events-none animate-fade-in"
             style={{
               left: `${(hoveredPoint.x / 700) * 100}%`,
-              top: `${(hoveredPoint.y / 700) * 100}%`,
+              top: `${(hoveredPoint.y / 480) * 100}%`,
               transform: 'translate(-50%, -130%)',
             }}
           >
@@ -467,8 +582,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
               </div>
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Cidade/UF</span>
-                  <span className="text-slate-200">{hoveredPoint.cidade || '-'} / {hoveredPoint.uf}</span>
+                  <span className="text-slate-400">Cidade</span>
+                  <span className="text-slate-200">{hoveredPoint.cidade}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Status</span>
@@ -486,22 +601,9 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
           </div>
         )}
 
-        {/* State tooltip */}
-        {hoveredState && stateStats[hoveredState] && (
-          <div className="absolute top-4 left-4 bg-slate-900/95 backdrop-blur-md border border-cyan-500/30 rounded-xl shadow-2xl px-4 py-3">
-            <div className="text-cyan-400 font-semibold">{brazilStates[hoveredState].name}</div>
-            <div className="text-slate-400 text-xs mt-1">
-              {stateStats[hoveredState].total} eventos
-              {stateStats[hoveredState].critical > 0 && (
-                <span className="text-red-400 ml-2">• {stateStats[hoveredState].critical} críticos</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Corner stats panel */}
+        {/* Corner stats */}
         <div className="absolute top-4 right-4 bg-slate-900/90 backdrop-blur-sm rounded-xl px-4 py-3 border border-slate-700/50">
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Total Alertas</div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Ceará</div>
           <div className="text-2xl font-bold text-cyan-400">{stats.total}</div>
           <div className="flex gap-2 mt-2">
             <div className="flex items-center gap-1">
@@ -519,7 +621,6 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
           </div>
         </div>
 
-        {/* Layer button */}
         <button className="absolute bottom-4 right-4 p-2 bg-slate-800/80 backdrop-blur-sm rounded-lg border border-slate-700/50 hover:bg-slate-700/80 transition-colors">
           <Layers className="h-4 w-4 text-slate-400" />
         </button>
@@ -545,7 +646,7 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
             <span className="text-xs text-slate-400">Baixo</span>
           </div>
         </div>
-        <span className="text-[11px] text-slate-500">{stats.states} estados com cobertura</span>
+        <span className="text-[11px] text-slate-500">Passe o mouse para detalhes</span>
       </div>
     </div>
   );
