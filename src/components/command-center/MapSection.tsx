@@ -73,10 +73,30 @@ const cearaCities = [
   { id: 'caninde', name: 'Canindé', lat: -4.3589, lng: -39.3117, priority: 3 },
 ];
 
+// Seeded random for consistent but varied positions per metric
+const seededRandom = (seed: number) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+const getOffsetForMetric = (cityId: string, metric: string): { lat: number; lng: number } => {
+  const metricSeeds: Record<string, number> = {
+    churn: 1, vencido: 7, sinal: 13, detrator: 19, reincidencia: 31
+  };
+  const cityIndex = cearaCities.findIndex(c => c.id === cityId);
+  const seed = (metricSeeds[metric] || 1) * (cityIndex + 1) * 17;
+  
+  const latOffset = (seededRandom(seed) - 0.5) * 0.35;
+  const lngOffset = (seededRandom(seed + 100) - 0.5) * 0.35;
+  
+  return { lat: latOffset, lng: lngOffset };
+};
+
 interface CityData {
   city: typeof cearaCities[0];
   count: number;
   severity: 'low' | 'medium' | 'high' | 'critical';
+  offset: { lat: number; lng: number };
 }
 
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
@@ -117,7 +137,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         criticalCount > count * 0.2 ? 'high' : 
         criticalCount > count * 0.1 ? 'medium' : 'low';
 
-      return { city, count: Math.max(count, 1), severity };
+      const offset = getOffsetForMetric(city.id, metric);
+      return { city, count: Math.max(count, 1), severity, offset };
     });
   }, [filaRisco, eventos, metric]);
 
@@ -181,7 +202,7 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         iconAnchor: [size / 2, size / 2],
       });
 
-      const marker = L.marker([data.city.lat, data.city.lng], { icon })
+      const marker = L.marker([data.city.lat + data.offset.lat, data.city.lng + data.offset.lng], { icon })
         .addTo(mapInstanceRef.current!);
 
       marker.bindPopup(`
