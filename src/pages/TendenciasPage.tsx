@@ -65,10 +65,11 @@ const TendenciasPage = () => {
   // Coorte por plano
   const coortePlano = useMemo(() => {
     const planos = new Map<string, { total: number; risco: number; inad: number }>();
-    const clientesPorPlano = new Map<string, Set<number>>();
+    const clientesPorPlano = new Map<string, Set<string>>();
 
     eventos.forEach(e => {
       const plano = e.plano_nome || 'Outros';
+      const clienteId = String(e.cliente_id);
       if (!planos.has(plano)) {
         planos.set(plano, { total: 0, risco: 0, inad: 0 });
         clientesPorPlano.set(plano, new Set());
@@ -77,8 +78,8 @@ const TendenciasPage = () => {
       const p = planos.get(plano)!;
       const clientes = clientesPorPlano.get(plano)!;
       
-      if (!clientes.has(e.cliente_id)) {
-        clientes.add(e.cliente_id);
+      if (!clientes.has(clienteId)) {
+        clientes.add(clienteId);
         p.total++;
         if (e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico') p.risco++;
       }

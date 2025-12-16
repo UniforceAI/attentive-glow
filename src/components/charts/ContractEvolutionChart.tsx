@@ -14,8 +14,8 @@ export function ContractEvolutionChart({ eventos }: ContractEvolutionChartProps)
     const monthlyData = new Map<string, { novos: number; churn: number; ativos: number }>();
     
     // Group by month and track new contracts and churns
-    const serviceFirstSeen = new Map<number, string>();
-    const serviceLastStatus = new Map<number, { month: string; status: string }>();
+    const serviceFirstSeen = new Map<string, string>();
+    const serviceLastStatus = new Map<string, { month: string; status: string }>();
     
     // Sort eventos by date
     const sortedEventos = [...eventos]
@@ -29,7 +29,7 @@ export function ContractEvolutionChart({ eventos }: ContractEvolutionChartProps)
         monthlyData.set(monthKey, { novos: 0, churn: 0, ativos: 0 });
       }
       
-      const serviceId = e.servico_id!;
+      const serviceId = String(e.servico_id!);
       
       // Track first seen (new contract)
       if (!serviceFirstSeen.has(serviceId)) {

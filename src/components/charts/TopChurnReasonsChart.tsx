@@ -22,16 +22,16 @@ export function TopChurnReasonsChart({ eventos }: TopChurnReasonsChartProps) {
     const reasonCounts = new Map<string, number>();
     
     // Find atendimentos for churned/high-risk clients
-    const highRiskClients = new Set<number>();
+    const highRiskClients = new Set<string>();
     eventos.forEach(e => {
       if (e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico' || e.servico_status === 'Cancelado') {
-        highRiskClients.add(e.cliente_id);
+        highRiskClients.add(String(e.cliente_id));
       }
     });
 
     // Count motivos from atendimentos
     eventos.forEach(e => {
-      if (e.event_type === 'ATENDIMENTO' && highRiskClients.has(e.cliente_id)) {
+      if (e.event_type === 'ATENDIMENTO' && highRiskClients.has(String(e.cliente_id))) {
         const motivo = e.motivo_contato || e.categoria || 'Outros';
         reasonCounts.set(motivo, (reasonCounts.get(motivo) || 0) + 1);
       }

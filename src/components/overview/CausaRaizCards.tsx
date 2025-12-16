@@ -19,7 +19,7 @@ interface CausaRaiz {
 
 export function CausaRaizCards({ eventos }: CausaRaizCardsProps) {
   const causasRaiz = useMemo((): CausaRaiz[] => {
-    const clientesMap = new Map<number, { 
+    const clientesMap = new Map<string, { 
       financeiro: boolean;
       rede: boolean;
       suporte: boolean;
@@ -29,8 +29,9 @@ export function CausaRaizCards({ eventos }: CausaRaizCardsProps) {
 
     // Agrupar por cliente
     eventos.forEach(e => {
-      if (!clientesMap.has(e.cliente_id)) {
-        clientesMap.set(e.cliente_id, {
+      const clienteId = String(e.cliente_id);
+      if (!clientesMap.has(clienteId)) {
+        clientesMap.set(clienteId, {
           financeiro: false,
           rede: false,
           suporte: false,
@@ -39,7 +40,7 @@ export function CausaRaizCards({ eventos }: CausaRaizCardsProps) {
         });
       }
 
-      const cliente = clientesMap.get(e.cliente_id)!;
+      const cliente = clientesMap.get(clienteId)!;
       
       // Financeiro: cobrança vencida ou dias_atraso > 7
       if (e.event_type === 'COBRANCA' && (e.vencido || (e.dias_atraso && e.dias_atraso > 7))) {

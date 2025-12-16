@@ -21,11 +21,12 @@ const ChurnPage = () => {
 
   // Fila de Risco (clientes Alto/Crítico)
   const filaRisco = useMemo(() => {
-    const clientesMap = new Map<number, any>();
+    const clientesMap = new Map<string, any>();
 
     eventos.forEach(e => {
-      if (!clientesMap.has(e.cliente_id)) {
-        clientesMap.set(e.cliente_id, {
+      const clienteId = String(e.cliente_id);
+      if (!clientesMap.has(clienteId)) {
+        clientesMap.set(clienteId, {
           cliente_id: e.cliente_id,
           cliente_nome: e.cliente_nome,
           plano_nome: e.plano_nome,
@@ -38,7 +39,7 @@ const ChurnPage = () => {
           acao_recomendada: e.acao_recomendada_1,
         });
       } else {
-        const cliente = clientesMap.get(e.cliente_id)!;
+        const cliente = clientesMap.get(clienteId)!;
         if (new Date(e.event_datetime) > new Date(cliente.ultima_interacao)) {
           cliente.ultima_interacao = e.event_datetime;
           cliente.churn_risk_score = e.churn_risk_score ?? cliente.churn_risk_score;
@@ -57,11 +58,12 @@ const ChurnPage = () => {
 
   // Drivers de Churn
   const drivers = useMemo(() => {
-    const clientesMap = new Map<number, any>();
+    const clientesMap = new Map<string, any>();
 
     eventos.forEach(e => {
-      if (!clientesMap.has(e.cliente_id)) {
-        clientesMap.set(e.cliente_id, {
+      const clienteId = String(e.cliente_id);
+      if (!clientesMap.has(clienteId)) {
+        clientesMap.set(clienteId, {
           valor: e.valor_mensalidade || 0,
           reincidencia: false,
           instabilidade: false,
@@ -70,7 +72,7 @@ const ChurnPage = () => {
         });
       }
 
-      const c = clientesMap.get(e.cliente_id)!;
+      const c = clientesMap.get(clienteId)!;
       if (e.reincidente_30d) c.reincidencia = true;
       if (e.packet_loss_pct && e.packet_loss_pct > 2) c.instabilidade = true;
       if (e.downtime_min_24h && e.downtime_min_24h > 30) c.instabilidade = true;

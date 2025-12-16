@@ -9,12 +9,13 @@ interface LTVChartProps {
 
 export function LTVChart({ eventos }: LTVChartProps) {
   const data = useMemo(() => {
-    const services = new Map<number, Evento>();
+    const services = new Map<string, Evento>();
     eventos.forEach(e => {
       if (!e.servico_id) return;
-      const existing = services.get(e.servico_id);
+      const serviceId = String(e.servico_id);
+      const existing = services.get(serviceId);
       if (!existing || new Date(e.event_datetime) > new Date(existing.event_datetime)) {
-        services.set(e.servico_id, e);
+        services.set(serviceId, e);
       }
     });
 

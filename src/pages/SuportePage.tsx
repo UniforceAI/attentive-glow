@@ -45,12 +45,13 @@ const SuportePage = () => {
 
   // Clientes com mais atendimentos
   const topClientes = useMemo(() => {
-    const clientes = new Map<number, { nome: string; count: number }>();
+    const clientes = new Map<string, { nome: string; count: number }>();
     atendimentos.forEach(a => {
-      if (!clientes.has(a.cliente_id)) {
-        clientes.set(a.cliente_id, { nome: a.cliente_nome, count: 0 });
+      const clienteId = String(a.cliente_id);
+      if (!clientes.has(clienteId)) {
+        clientes.set(clienteId, { nome: a.cliente_nome, count: 0 });
       }
-      clientes.get(a.cliente_id)!.count++;
+      clientes.get(clienteId)!.count++;
     });
     return Array.from(clientes.entries())
       .map(([id, { nome, count }]) => ({ cliente_id: id, nome, count }))

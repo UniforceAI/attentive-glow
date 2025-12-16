@@ -31,11 +31,12 @@ const ClientesPage = () => {
 
   // Agregar clientes
   const clientes = useMemo(() => {
-    const map = new Map<number, any>();
+    const map = new Map<string, any>();
 
     eventos.forEach(e => {
-      if (!map.has(e.cliente_id)) {
-        map.set(e.cliente_id, {
+      const clienteId = String(e.cliente_id);
+      if (!map.has(clienteId)) {
+        map.set(clienteId, {
           cliente_id: e.cliente_id,
           cliente_nome: e.cliente_nome,
           cliente_documento: e.cliente_documento,
@@ -52,7 +53,7 @@ const ClientesPage = () => {
         });
       }
 
-      const c = map.get(e.cliente_id)!;
+      const c = map.get(clienteId)!;
       if (new Date(e.event_datetime) > new Date(c.ultimo_evento)) {
         c.ultimo_evento = e.event_datetime;
         c.churn_risk_score = e.churn_risk_score ?? c.churn_risk_score;
