@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Evento, ClienteRisco, ClienteCobranca } from "@/types/evento";
-import { MapPin, AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, Zap } from "lucide-react";
+import { MapPin, AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, Navigation2, Layers } from "lucide-react";
 
 interface MapSectionProps {
   filaRisco: ClienteRisco[];
@@ -11,11 +11,11 @@ interface MapSectionProps {
 }
 
 const metrics = [
-  { key: 'churn', label: 'Churn', icon: AlertTriangle, gradient: 'from-rose-500 to-red-600', glow: 'shadow-rose-500/50' },
-  { key: 'vencido', label: 'Vencido', icon: DollarSign, gradient: 'from-amber-400 to-orange-500', glow: 'shadow-amber-500/50' },
-  { key: 'sinal', label: 'Sinal', icon: Wifi, gradient: 'from-cyan-400 to-blue-500', glow: 'shadow-cyan-500/50' },
-  { key: 'detrator', label: 'NPS', icon: ThumbsDown, gradient: 'from-violet-400 to-purple-600', glow: 'shadow-violet-500/50' },
-  { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw, gradient: 'from-orange-400 to-rose-500', glow: 'shadow-orange-500/50' },
+  { key: 'churn', label: 'Churn', icon: AlertTriangle },
+  { key: 'vencido', label: 'Vencido', icon: DollarSign },
+  { key: 'sinal', label: 'Sinal', icon: Wifi },
+  { key: 'detrator', label: 'NPS', icon: ThumbsDown },
+  { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw },
 ] as const;
 
 interface DataPoint {
@@ -28,39 +28,126 @@ interface DataPoint {
   severity: 'low' | 'medium' | 'high' | 'critical';
 }
 
-// Brazil-inspired abstract regions for visual appeal
-const regions = [
-  { id: 'norte', path: 'M120 40 Q180 20 240 50 Q280 80 260 120 Q220 140 160 130 Q100 110 120 40', name: 'Norte' },
-  { id: 'nordeste', path: 'M260 50 Q340 30 380 80 Q400 140 360 180 Q300 160 260 120 Q240 80 260 50', name: 'Nordeste' },
-  { id: 'centro', path: 'M160 130 Q220 140 260 120 Q300 160 280 220 Q220 260 160 230 Q120 180 160 130', name: 'Centro-Oeste' },
-  { id: 'sudeste', path: 'M280 220 Q340 200 380 240 Q400 300 340 340 Q280 320 260 280 Q260 240 280 220', name: 'Sudeste' },
-  { id: 'sul', path: 'M220 280 Q260 280 280 320 Q300 380 240 400 Q180 390 180 340 Q190 300 220 280', name: 'Sul' },
-];
-
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
   const [hoveredPoint, setHoveredPoint] = useState<DataPoint | null>(null);
-  const [hoveredRegion, setHoveredRegion] = useState<string | null>(null);
+
+  // Generate realistic road network
+  const roads = useMemo(() => {
+    const r: { x1: number; y1: number; x2: number; y2: number; type: 'highway' | 'main' | 'secondary' | 'local' }[] = [];
+    
+    // Highways - major arteries
+    const highways = [
+      { x1: 0, y1: 180, x2: 700, y2: 200, curve: 20 },
+      { x1: 150, y1: 0, x2: 180, y2: 450, curve: 15 },
+      { x1: 0, y1: 350, x2: 700, y2: 320, curve: -25 },
+      { x1: 450, y1: 0, x2: 420, y2: 450, curve: -10 },
+      { x1: 0, y1: 80, x2: 550, y2: 60, curve: 15 },
+    ];
+    highways.forEach(h => r.push({ ...h, type: 'highway' }));
+
+    // Main roads - connect highways
+    for (let i = 0; i < 12; i++) {
+      const startX = 50 + Math.random() * 600;
+      const startY = 30 + Math.random() * 380;
+      const length = 80 + Math.random() * 150;
+      const angle = Math.random() * Math.PI;
+      r.push({
+        x1: startX,
+        y1: startY,
+        x2: startX + Math.cos(angle) * length,
+        y2: startY + Math.sin(angle) * length,
+        type: 'main'
+      });
+    }
+
+    // Secondary roads - neighborhood connectors
+    for (let i = 0; i < 25; i++) {
+      const startX = 30 + Math.random() * 640;
+      const startY = 20 + Math.random() * 400;
+      const length = 40 + Math.random() * 80;
+      const angle = Math.random() * Math.PI * 2;
+      r.push({
+        x1: startX,
+        y1: startY,
+        x2: startX + Math.cos(angle) * length,
+        y2: startY + Math.sin(angle) * length,
+        type: 'secondary'
+      });
+    }
+
+    // Local streets - fine grid
+    for (let i = 0; i < 60; i++) {
+      const startX = 20 + Math.random() * 660;
+      const startY = 10 + Math.random() * 420;
+      const length = 15 + Math.random() * 40;
+      const angle = Math.random() * Math.PI * 2;
+      r.push({
+        x1: startX,
+        y1: startY,
+        x2: startX + Math.cos(angle) * length,
+        y2: startY + Math.sin(angle) * length,
+        type: 'local'
+      });
+    }
+
+    return r;
+  }, []);
+
+  // City blocks / districts
+  const blocks = useMemo(() => {
+    const b: { x: number; y: number; w: number; h: number; opacity: number }[] = [];
+    for (let i = 0; i < 40; i++) {
+      b.push({
+        x: 20 + Math.random() * 620,
+        y: 15 + Math.random() * 390,
+        w: 20 + Math.random() * 50,
+        h: 15 + Math.random() * 40,
+        opacity: 0.02 + Math.random() * 0.06
+      });
+    }
+    return b;
+  }, []);
+
+  // Landmarks / POIs
+  const landmarks = useMemo(() => [
+    { x: 350, y: 220, name: 'Centro', size: 'lg' },
+    { x: 180, y: 120, name: 'Norte', size: 'md' },
+    { x: 520, y: 150, name: 'Leste', size: 'md' },
+    { x: 150, y: 320, name: 'Oeste', size: 'md' },
+    { x: 400, y: 380, name: 'Sul', size: 'md' },
+  ], []);
 
   const dataPoints = useMemo((): DataPoint[] => {
     const points: DataPoint[] = [];
     
-    // Generate visually distributed points across the map regions
-    const generatePoint = (index: number, total: number, baseX: number, baseY: number, spread: number): { x: number; y: number } => {
-      const angle = (index / total) * Math.PI * 2 + Math.random() * 0.5;
-      const radius = spread * (0.3 + Math.random() * 0.7);
+    const generatePoint = (index: number, total: number): { x: number; y: number } => {
+      // Cluster points around city centers
+      const centers = [
+        { x: 350, y: 220, weight: 0.35 },
+        { x: 180, y: 120, weight: 0.2 },
+        { x: 520, y: 150, weight: 0.15 },
+        { x: 150, y: 320, weight: 0.15 },
+        { x: 400, y: 380, weight: 0.15 },
+      ];
+      
+      // Pick center based on weight
+      let rand = Math.random();
+      let center = centers[0];
+      for (const c of centers) {
+        rand -= c.weight;
+        if (rand <= 0) {
+          center = c;
+          break;
+        }
+      }
+      
+      const spread = 60 + Math.random() * 40;
+      const angle = Math.random() * Math.PI * 2;
       return {
-        x: baseX + Math.cos(angle) * radius,
-        y: baseY + Math.sin(angle) * radius
+        x: center.x + Math.cos(angle) * spread * Math.random(),
+        y: center.y + Math.sin(angle) * spread * Math.random()
       };
     };
-
-    const regionCenters = [
-      { x: 180, y: 80 },   // Norte
-      { x: 340, y: 100 },  // Nordeste
-      { x: 220, y: 180 },  // Centro-Oeste
-      { x: 320, y: 270 },  // Sudeste
-      { x: 240, y: 350 },  // Sul
-    ];
 
     const getSeverity = (score: number): 'low' | 'medium' | 'high' | 'critical' => {
       if (score >= 80) return 'critical';
@@ -71,9 +158,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     
     switch (metric) {
       case 'churn':
-        filaRisco.slice(0, 25).forEach((c, i) => {
-          const region = regionCenters[i % regionCenters.length];
-          const pos = generatePoint(i, 25, region.x, region.y, 60);
+        filaRisco.slice(0, 35).forEach((c, i) => {
+          const pos = generatePoint(i, 35);
           points.push({
             id: c.cliente_id,
             ...pos,
@@ -85,9 +171,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         });
         break;
       case 'vencido':
-        eventos.filter(e => e.cobranca_status === 'Vencido').slice(0, 25).forEach((e, i) => {
-          const region = regionCenters[i % regionCenters.length];
-          const pos = generatePoint(i, 25, region.x, region.y, 60);
+        eventos.filter(e => e.cobranca_status === 'Vencido').slice(0, 35).forEach((e, i) => {
+          const pos = generatePoint(i, 35);
           points.push({
             id: `${e.cliente_id}-${e.event_id}`,
             ...pos,
@@ -99,9 +184,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         });
         break;
       case 'sinal':
-        eventos.filter(e => e.alerta_tipo === 'Sinal crítico').slice(0, 25).forEach((e, i) => {
-          const region = regionCenters[i % regionCenters.length];
-          const pos = generatePoint(i, 25, region.x, region.y, 60);
+        eventos.filter(e => e.alerta_tipo === 'Sinal crítico').slice(0, 35).forEach((e, i) => {
+          const pos = generatePoint(i, 35);
           points.push({
             id: `${e.cliente_id}-${e.event_id}`,
             ...pos,
@@ -113,9 +197,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         });
         break;
       case 'detrator':
-        eventos.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).slice(0, 25).forEach((e, i) => {
-          const region = regionCenters[i % regionCenters.length];
-          const pos = generatePoint(i, 25, region.x, region.y, 60);
+        eventos.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).slice(0, 35).forEach((e, i) => {
+          const pos = generatePoint(i, 35);
           points.push({
             id: `${e.cliente_id}-${e.event_id}`,
             ...pos,
@@ -127,9 +210,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         });
         break;
       case 'reincidencia':
-        eventos.filter(e => e.reincidente_30d === true).slice(0, 25).forEach((e, i) => {
-          const region = regionCenters[i % regionCenters.length];
-          const pos = generatePoint(i, 25, region.x, region.y, 60);
+        eventos.filter(e => e.reincidente_30d === true).slice(0, 35).forEach((e, i) => {
+          const pos = generatePoint(i, 35);
           points.push({
             id: `${e.cliente_id}-${e.event_id}`,
             ...pos,
@@ -145,51 +227,37 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     return points;
   }, [filaRisco, eventos, metric]);
 
-  const currentMetric = metrics.find(m => m.key === metric)!;
-
   const severityColors = {
-    critical: { fill: 'hsl(0, 84%, 60%)', ring: 'hsl(0, 84%, 70%)' },
-    high: { fill: 'hsl(25, 95%, 53%)', ring: 'hsl(25, 95%, 63%)' },
-    medium: { fill: 'hsl(45, 93%, 47%)', ring: 'hsl(45, 93%, 57%)' },
-    low: { fill: 'hsl(142, 71%, 45%)', ring: 'hsl(142, 71%, 55%)' },
+    critical: '#ef4444',
+    high: '#f59e0b', 
+    medium: '#eab308',
+    low: '#22c55e',
   };
 
-  // Count points per region for heatmap effect
-  const regionHeat = useMemo(() => {
-    const heat: Record<string, number> = {};
-    regions.forEach(r => {
-      const regionIndex = regions.indexOf(r);
-      const center = [
-        { x: 180, y: 80 },
-        { x: 340, y: 100 },
-        { x: 220, y: 180 },
-        { x: 320, y: 270 },
-        { x: 240, y: 350 },
-      ][regionIndex];
-      
-      heat[r.id] = dataPoints.filter(p => 
-        Math.abs(p.x - center.x) < 80 && Math.abs(p.y - center.y) < 80
-      ).length;
-    });
-    return heat;
-  }, [dataPoints]);
-
-  const maxHeat = Math.max(...Object.values(regionHeat), 1);
+  const stats = useMemo(() => ({
+    critical: dataPoints.filter(p => p.severity === 'critical').length,
+    high: dataPoints.filter(p => p.severity === 'high').length,
+    medium: dataPoints.filter(p => p.severity === 'medium').length,
+    low: dataPoints.filter(p => p.severity === 'low').length,
+    total: dataPoints.length
+  }), [dataPoints]);
 
   return (
-    <div className="bg-gradient-to-br from-card via-card to-muted/30 border border-border rounded-2xl overflow-hidden shadow-xl">
+    <div className="bg-[#0a1628] border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/50 px-5 py-4 bg-gradient-to-r from-transparent via-muted/20 to-transparent">
+      <div className="flex items-center justify-between border-b border-slate-700/50 px-5 py-3 bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl bg-gradient-to-br ${currentMetric.gradient} shadow-lg ${currentMetric.glow}`}>
-            <Zap className="h-4 w-4 text-white" />
+          <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+            <Navigation2 className="h-4 w-4 text-cyan-400" />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">Mapa de Concentração</h3>
-            <p className="text-xs text-muted-foreground">{dataPoints.length} alertas ativos</p>
+            <h3 className="font-semibold text-white text-sm">Mapa de Operações</h3>
+            <p className="text-[11px] text-slate-400">{stats.total} pontos ativos na região</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 bg-muted/50 rounded-xl p-1">
+        
+        {/* Metric toggles */}
+        <div className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 border border-slate-700/50">
           {metrics.map(m => {
             const Icon = m.icon;
             const isActive = metric === m.key;
@@ -197,10 +265,10 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
               <button
                 key={m.key}
                 onClick={() => onMetricChange(m.key as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
                   isActive 
-                    ? `bg-gradient-to-r ${m.gradient} text-white shadow-lg ${m.glow}` 
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" />
@@ -211,234 +279,361 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         </div>
       </div>
 
-      {/* Map Area */}
-      <div className="relative p-6">
+      {/* Map Container */}
+      <div className="relative">
         <svg 
-          viewBox="0 0 500 440" 
-          className="w-full h-[320px] md:h-[380px]"
+          viewBox="0 0 700 450" 
+          className="w-full h-[400px] md:h-[480px]"
+          style={{ background: 'linear-gradient(135deg, #0a1628 0%, #0d1f35 50%, #0a1628 100%)' }}
         >
-          {/* Background gradient */}
           <defs>
-            <linearGradient id="mapBg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="hsl(var(--muted))" stopOpacity="0.1" />
-              <stop offset="50%" stopColor="hsl(var(--muted))" stopOpacity="0.05" />
-              <stop offset="100%" stopColor="hsl(var(--muted))" stopOpacity="0.15" />
-            </linearGradient>
-            
-            {/* Glow filter */}
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            {/* Road glow effect */}
+            <filter id="roadGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
               <feMerge>
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            
+            {/* Point glow */}
+            <filter id="pointGlow" x="-100%" y="-100%" width="300%" height="300%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
 
-            {/* Pulse animation gradient */}
-            <radialGradient id="pulseGradient">
-              <stop offset="0%" stopColor="currentColor" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-            </radialGradient>
+            {/* Critical pulse glow */}
+            <filter id="criticalGlow" x="-150%" y="-150%" width="400%" height="400%">
+              <feGaussianBlur stdDeviation="6" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
 
-            {/* Region gradients based on heat */}
-            {regions.map((region, i) => {
-              const heat = regionHeat[region.id] || 0;
-              const intensity = heat / maxHeat;
-              return (
-                <linearGradient key={region.id} id={`region-${region.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={`hsl(var(--primary))`} stopOpacity={0.05 + intensity * 0.15} />
-                  <stop offset="100%" stopColor={`hsl(var(--primary))`} stopOpacity={0.02 + intensity * 0.1} />
-                </linearGradient>
-              );
-            })}
+            {/* Gradient for highway */}
+            <linearGradient id="highwayGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#0891b2" stopOpacity="0.9" />
+              <stop offset="50%" stopColor="#06b6d4" stopOpacity="1" />
+              <stop offset="100%" stopColor="#0891b2" stopOpacity="0.9" />
+            </linearGradient>
           </defs>
 
-          {/* Map background */}
-          <rect x="0" y="0" width="500" height="440" fill="url(#mapBg)" rx="16" />
+          {/* City blocks background */}
+          {blocks.map((block, i) => (
+            <rect
+              key={`block-${i}`}
+              x={block.x}
+              y={block.y}
+              width={block.w}
+              height={block.h}
+              fill="#0ea5e9"
+              opacity={block.opacity}
+              rx="2"
+            />
+          ))}
 
-          {/* Decorative grid */}
-          <g opacity="0.15">
-            {[...Array(10)].map((_, i) => (
-              <line key={`h-${i}`} x1="0" y1={i * 44} x2="500" y2={i * 44} stroke="hsl(var(--border))" strokeWidth="0.5" />
-            ))}
-            {[...Array(12)].map((_, i) => (
-              <line key={`v-${i}`} x1={i * 45} y1="0" x2={i * 45} y2="440" stroke="hsl(var(--border))" strokeWidth="0.5" />
-            ))}
-          </g>
+          {/* Local streets - finest layer */}
+          {roads.filter(r => r.type === 'local').map((road, i) => (
+            <line
+              key={`local-${i}`}
+              x1={road.x1}
+              y1={road.y1}
+              x2={road.x2}
+              y2={road.y2}
+              stroke="#0e7490"
+              strokeWidth="0.5"
+              strokeOpacity="0.25"
+              strokeLinecap="round"
+            />
+          ))}
 
-          {/* Regions */}
-          {regions.map((region) => {
-            const isHovered = hoveredRegion === region.id;
-            const heat = regionHeat[region.id] || 0;
-            return (
-              <g key={region.id}>
-                <path
-                  d={region.path}
-                  fill={`url(#region-${region.id})`}
-                  stroke="hsl(var(--border))"
-                  strokeWidth={isHovered ? 2 : 1}
-                  strokeOpacity={isHovered ? 0.8 : 0.3}
-                  className="transition-all duration-300 cursor-pointer"
-                  onMouseEnter={() => setHoveredRegion(region.id)}
-                  onMouseLeave={() => setHoveredRegion(null)}
-                />
-                {heat > 0 && (
-                  <text
-                    x={region.id === 'norte' ? 180 : region.id === 'nordeste' ? 330 : region.id === 'centro' ? 210 : region.id === 'sudeste' ? 320 : 230}
-                    y={region.id === 'norte' ? 85 : region.id === 'nordeste' ? 110 : region.id === 'centro' ? 185 : region.id === 'sudeste' ? 280 : 345}
-                    textAnchor="middle"
-                    className="text-[10px] font-medium fill-muted-foreground pointer-events-none"
-                    opacity={isHovered ? 1 : 0.5}
-                  >
-                    {heat} alertas
-                  </text>
-                )}
-              </g>
-            );
-          })}
+          {/* Secondary roads */}
+          {roads.filter(r => r.type === 'secondary').map((road, i) => (
+            <line
+              key={`secondary-${i}`}
+              x1={road.x1}
+              y1={road.y1}
+              x2={road.x2}
+              y2={road.y2}
+              stroke="#0891b2"
+              strokeWidth="1"
+              strokeOpacity="0.4"
+              strokeLinecap="round"
+            />
+          ))}
 
-          {/* Connection lines between nearby critical points */}
-          {dataPoints.filter(p => p.severity === 'critical').map((point, i, arr) => {
-            const nextPoint = arr[(i + 1) % arr.length];
-            if (!nextPoint || i === arr.length - 1) return null;
-            return (
+          {/* Main roads */}
+          {roads.filter(r => r.type === 'main').map((road, i) => (
+            <line
+              key={`main-${i}`}
+              x1={road.x1}
+              y1={road.y1}
+              x2={road.x2}
+              y2={road.y2}
+              stroke="#0ea5e9"
+              strokeWidth="1.5"
+              strokeOpacity="0.6"
+              strokeLinecap="round"
+              filter="url(#roadGlow)"
+            />
+          ))}
+
+          {/* Highways - most prominent */}
+          {roads.filter(r => r.type === 'highway').map((road, i) => (
+            <g key={`highway-${i}`}>
+              {/* Glow layer */}
               <line
-                key={`line-${point.id}`}
-                x1={point.x}
-                y1={point.y}
-                x2={nextPoint.x}
-                y2={nextPoint.y}
-                stroke={severityColors.critical.fill}
+                x1={road.x1}
+                y1={road.y1}
+                x2={road.x2}
+                y2={road.y2}
+                stroke="#06b6d4"
+                strokeWidth="4"
+                strokeOpacity="0.15"
+                strokeLinecap="round"
+              />
+              {/* Main road */}
+              <line
+                x1={road.x1}
+                y1={road.y1}
+                x2={road.x2}
+                y2={road.y2}
+                stroke="url(#highwayGradient)"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                filter="url(#roadGlow)"
+              />
+            </g>
+          ))}
+
+          {/* Landmark labels */}
+          {landmarks.map((lm, i) => (
+            <g key={`landmark-${i}`}>
+              <circle
+                cx={lm.x}
+                cy={lm.y}
+                r={lm.size === 'lg' ? 25 : 18}
+                fill="#0ea5e9"
+                opacity="0.05"
+              />
+              <text
+                x={lm.x}
+                y={lm.y + 4}
+                textAnchor="middle"
+                fill="#64748b"
+                fontSize={lm.size === 'lg' ? "11" : "9"}
+                fontWeight="500"
+                className="select-none"
+              >
+                {lm.name}
+              </text>
+            </g>
+          ))}
+
+          {/* Connection lines between critical points */}
+          {dataPoints
+            .filter(p => p.severity === 'critical')
+            .slice(0, 6)
+            .map((point, i, arr) => {
+              if (i === arr.length - 1) return null;
+              const next = arr[i + 1];
+              return (
+                <line
+                  key={`conn-${i}`}
+                  x1={point.x}
+                  y1={point.y}
+                  x2={next.x}
+                  y2={next.y}
+                  stroke="#ef4444"
+                  strokeWidth="1"
+                  strokeOpacity="0.3"
+                  strokeDasharray="5,5"
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="0"
+                    to="10"
+                    dur="1.5s"
+                    repeatCount="indefinite"
+                  />
+                </line>
+              );
+            })}
+
+          {/* Data points - layered by severity */}
+          {/* Low severity first (back) */}
+          {dataPoints.filter(p => p.severity === 'low').map((point, i) => (
+            <g 
+              key={`low-${point.id}`}
+              className="cursor-pointer"
+              onMouseEnter={() => setHoveredPoint(point)}
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="5"
+                fill={severityColors.low}
+                opacity="0.8"
+              />
+            </g>
+          ))}
+
+          {/* Medium severity */}
+          {dataPoints.filter(p => p.severity === 'medium').map((point, i) => (
+            <g 
+              key={`medium-${point.id}`}
+              className="cursor-pointer"
+              onMouseEnter={() => setHoveredPoint(point)}
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="7"
+                fill={severityColors.medium}
+                opacity="0.15"
+                filter="url(#pointGlow)"
+              />
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="5"
+                fill={severityColors.medium}
+                opacity="0.9"
+              />
+            </g>
+          ))}
+
+          {/* High severity */}
+          {dataPoints.filter(p => p.severity === 'high').map((point, i) => (
+            <g 
+              key={`high-${point.id}`}
+              className="cursor-pointer"
+              onMouseEnter={() => setHoveredPoint(point)}
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="10"
+                fill={severityColors.high}
+                opacity="0.2"
+                filter="url(#pointGlow)"
+              />
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="6"
+                fill={severityColors.high}
+                stroke="rgba(255,255,255,0.2)"
                 strokeWidth="1"
-                strokeOpacity="0.2"
-                strokeDasharray="4 4"
+              />
+            </g>
+          ))}
+
+          {/* Critical - top layer with animation */}
+          {dataPoints.filter(p => p.severity === 'critical').map((point, i) => (
+            <g 
+              key={`critical-${point.id}`}
+              className="cursor-pointer"
+              onMouseEnter={() => setHoveredPoint(point)}
+              onMouseLeave={() => setHoveredPoint(null)}
+            >
+              {/* Outer pulse ring */}
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="12"
+                fill="none"
+                stroke={severityColors.critical}
+                strokeWidth="1.5"
+                opacity="0.5"
               >
                 <animate
-                  attributeName="stroke-dashoffset"
-                  from="0"
-                  to="8"
-                  dur="1s"
+                  attributeName="r"
+                  from="8"
+                  to="20"
+                  dur="2s"
                   repeatCount="indefinite"
                 />
-              </line>
-            );
-          })}
-
-          {/* Data points */}
-          {dataPoints.map((point, i) => {
-            const isHovered = hoveredPoint?.id === point.id;
-            const colors = severityColors[point.severity];
-            const baseSize = point.severity === 'critical' ? 10 : point.severity === 'high' ? 8 : 6;
-            
-            return (
-              <g 
-                key={point.id}
-                className="cursor-pointer"
-                onMouseEnter={() => setHoveredPoint(point)}
-                onMouseLeave={() => setHoveredPoint(null)}
-                style={{ 
-                  animation: `fade-in 0.5s ease-out ${i * 0.03}s both`,
-                }}
-              >
-                {/* Outer pulse ring for critical */}
-                {point.severity === 'critical' && (
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={baseSize}
-                    fill="none"
-                    stroke={colors.ring}
-                    strokeWidth="2"
-                  >
-                    <animate
-                      attributeName="r"
-                      from={baseSize}
-                      to={baseSize + 15}
-                      dur="2s"
-                      repeatCount="indefinite"
-                    />
-                    <animate
-                      attributeName="opacity"
-                      from="0.6"
-                      to="0"
-                      dur="2s"
-                      repeatCount="indefinite"
-                    />
-                  </circle>
-                )}
-
-                {/* Glow */}
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={isHovered ? baseSize + 8 : baseSize + 4}
-                  fill={colors.fill}
-                  opacity={isHovered ? 0.4 : 0.2}
-                  filter="url(#glow)"
-                  className="transition-all duration-300"
+                <animate
+                  attributeName="opacity"
+                  from="0.6"
+                  to="0"
+                  dur="2s"
+                  repeatCount="indefinite"
                 />
-
-                {/* Main marker */}
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={isHovered ? baseSize + 3 : baseSize}
-                  fill={colors.fill}
-                  stroke="hsl(var(--background))"
-                  strokeWidth="2"
-                  className="transition-all duration-300"
-                  filter={isHovered ? "url(#glow)" : undefined}
-                />
-
-                {/* Inner highlight */}
-                <circle
-                  cx={point.x - baseSize * 0.2}
-                  cy={point.y - baseSize * 0.2}
-                  r={baseSize * 0.3}
-                  fill="white"
-                  opacity="0.4"
-                />
-              </g>
-            );
-          })}
+              </circle>
+              {/* Glow */}
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="14"
+                fill={severityColors.critical}
+                opacity="0.15"
+                filter="url(#criticalGlow)"
+              />
+              {/* Inner ring */}
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="9"
+                fill={severityColors.critical}
+                opacity="0.3"
+              />
+              {/* Core */}
+              <circle
+                cx={point.x}
+                cy={point.y}
+                r="6"
+                fill={severityColors.critical}
+                stroke="rgba(255,255,255,0.3)"
+                strokeWidth="1.5"
+              />
+            </g>
+          ))}
         </svg>
 
-        {/* Floating tooltip */}
+        {/* Hover tooltip */}
         {hoveredPoint && (
           <div 
-            className="absolute z-20 animate-scale-in"
+            className="absolute z-30 pointer-events-none animate-fade-in"
             style={{
-              left: `${(hoveredPoint.x / 500) * 100}%`,
-              top: `${(hoveredPoint.y / 440) * 100 - 5}%`,
-              transform: 'translate(-50%, -100%)',
+              left: `${(hoveredPoint.x / 700) * 100}%`,
+              top: `${(hoveredPoint.y / 450) * 100}%`,
+              transform: 'translate(-50%, -130%)',
             }}
           >
-            <div className="bg-popover/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl p-3 min-w-[180px]">
-              <div className="flex items-start gap-2">
+            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-600/50 rounded-xl shadow-2xl px-4 py-3 min-w-[200px]">
+              <div className="flex items-center gap-2 mb-2">
                 <div 
-                  className="w-3 h-3 rounded-full mt-0.5 shadow-lg"
-                  style={{ backgroundColor: severityColors[hoveredPoint.severity].fill }}
+                  className="w-3 h-3 rounded-full shadow-lg"
+                  style={{ 
+                    backgroundColor: severityColors[hoveredPoint.severity],
+                    boxShadow: `0 0 8px ${severityColors[hoveredPoint.severity]}80`
+                  }}
                 />
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-foreground leading-tight">{hoveredPoint.cliente}</p>
-                  <p className="text-xs text-muted-foreground">{hoveredPoint.cidade}</p>
-                </div>
+                <span className="font-semibold text-white text-sm">{hoveredPoint.cliente}</span>
               </div>
-              <div className="mt-2 pt-2 border-t border-border/50">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {metric === 'churn' && 'Score de Risco'}
-                    {metric === 'vencido' && 'Valor Vencido'}
-                    {metric === 'sinal' && 'Sinal dBm'}
-                    {metric === 'detrator' && 'NPS Score'}
-                    {metric === 'reincidencia' && 'Status'}
-                  </span>
-                  <span className="font-bold" style={{ color: severityColors[hoveredPoint.severity].fill }}>
-                    {metric === 'churn' && `${hoveredPoint.value}%`}
-                    {metric === 'vencido' && `R$ ${hoveredPoint.value.toLocaleString('pt-BR')}`}
-                    {metric === 'sinal' && `-${hoveredPoint.value} dBm`}
-                    {metric === 'detrator' && hoveredPoint.value}
-                    {metric === 'reincidencia' && 'Reincidente'}
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Cidade</span>
+                  <span className="text-slate-200">{hoveredPoint.cidade || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Status</span>
+                  <span 
+                    className="font-medium capitalize"
+                    style={{ color: severityColors[hoveredPoint.severity] }}
+                  >
+                    {hoveredPoint.severity === 'critical' ? 'Crítico' : 
+                     hoveredPoint.severity === 'high' ? 'Alto' :
+                     hoveredPoint.severity === 'medium' ? 'Médio' : 'Baixo'}
                   </span>
                 </div>
               </div>
@@ -446,22 +641,53 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
           </div>
         )}
 
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4">
-          {[
-            { label: 'Crítico', severity: 'critical' as const },
-            { label: 'Alto', severity: 'high' as const },
-            { label: 'Médio', severity: 'medium' as const },
-          ].map(item => (
-            <div key={item.severity} className="flex items-center gap-2">
-              <div 
-                className="w-3 h-3 rounded-full shadow-md"
-                style={{ backgroundColor: severityColors[item.severity].fill }}
-              />
-              <span className="text-xs text-muted-foreground">{item.label}</span>
+        {/* Corner stats panel */}
+        <div className="absolute top-4 right-4 bg-slate-900/90 backdrop-blur-sm rounded-xl px-4 py-3 border border-slate-700/50">
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Alertas</div>
+          <div className="text-2xl font-bold text-cyan-400">{stats.total}</div>
+          <div className="flex gap-2 mt-2">
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <span className="text-[10px] text-slate-400">{stats.critical}</span>
             </div>
-          ))}
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-[10px] text-slate-400">{stats.high}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span className="text-[10px] text-slate-400">{stats.medium}</span>
+            </div>
+          </div>
         </div>
+
+        {/* Layer button (decorative) */}
+        <button className="absolute bottom-4 right-4 p-2 bg-slate-800/80 backdrop-blur-sm rounded-lg border border-slate-700/50 hover:bg-slate-700/80 transition-colors">
+          <Layers className="h-4 w-4 text-slate-400" />
+        </button>
+      </div>
+
+      {/* Bottom legend bar */}
+      <div className="flex items-center justify-between border-t border-slate-700/50 px-5 py-3 bg-gradient-to-r from-slate-900/80 via-slate-800/50 to-slate-900/80">
+        <div className="flex gap-5">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/40" />
+            <span className="text-xs text-slate-400">Crítico</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-amber-500 shadow-lg shadow-amber-500/40" />
+            <span className="text-xs text-slate-400">Alto</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-yellow-500" />
+            <span className="text-xs text-slate-400">Médio</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-500" />
+            <span className="text-xs text-slate-400">Baixo</span>
+          </div>
+        </div>
+        <span className="text-[11px] text-slate-500">Passe o mouse sobre os pontos para detalhes</span>
       </div>
     </div>
   );
