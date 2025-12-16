@@ -1,142 +1,104 @@
 import { useState, useMemo } from "react";
 import { useEventos } from "@/hooks/useEventos";
-import { Evento, ClienteAgregado, KPIData } from "@/types/evento";
-import { OverviewKPIs } from "@/components/overview/OverviewKPIs";
-import { TopClientesRisco } from "@/components/overview/TopClientesRisco";
-import { CausaRaizCards } from "@/components/overview/CausaRaizCards";
-import { TrendChart } from "@/components/overview/TrendChart";
-import { GlobalFilters } from "@/components/filters/GlobalFilters";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Button } from "@/components/ui/button";
-import { RefreshCw, Database } from "lucide-react";
+import { MetricCard } from "@/components/dashboard/MetricCard";
+import { MRRChurnChart } from "@/components/charts/MRRChurnChart";
+import { ContractEvolutionChart } from "@/components/charts/ContractEvolutionChart";
+import { ChurnByPlanChart } from "@/components/charts/ChurnByPlanChart";
+import { ChurnByNeighborhoodChart } from "@/components/charts/ChurnByNeighborhoodChart";
+import { AnnualChurnChart } from "@/components/charts/AnnualChurnChart";
+import { TopChurnReasonsChart } from "@/components/charts/TopChurnReasonsChart";
+import { LTVChart } from "@/components/charts/LTVChart";
+import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  TrendingDown, DollarSign, Users, AlertTriangle, 
+  Activity, Target, Zap, Clock
+} from "lucide-react";
 
 const Index = () => {
-  const { eventos, isLoading, fetchEventos, loadFromFile } = useEventos();
+  const { eventos, isLoading } = useEventos();
 
-  const [periodo, setPeriodo] = useState("30");
-  const [uf, setUf] = useState("todos");
-  const [plano, setPlano] = useState("todos");
-  const [statusServico, setStatusServico] = useState("todos");
-  const [bucketRisco, setBucketRisco] = useState("todos");
-  const [segmento, setSegmento] = useState("todos");
-
-  const eventosFiltrados = useMemo(() => {
-    return eventos.filter(e => {
-      if (uf !== "todos" && e.cliente_uf !== uf) return false;
-      if (plano !== "todos" && e.plano_nome !== plano) return false;
-      if (statusServico !== "todos" && e.servico_status !== statusServico) return false;
-      if (bucketRisco !== "todos" && e.churn_risk_bucket !== bucketRisco) return false;
-      if (segmento !== "todos" && e.cliente_segmento !== segmento) return false;
-      return true;
-    });
-  }, [eventos, uf, plano, statusServico, bucketRisco, segmento]);
-
-  const kpis = useMemo((): KPIData => {
-    const clientesUnicos = new Map<number, Evento>();
-    const servicosUnicos = new Map<number, Evento>();
-
-    eventosFiltrados.forEach(e => {
-      if (!clientesUnicos.has(e.cliente_id) || new Date(e.event_datetime) > new Date(clientesUnicos.get(e.cliente_id)!.event_datetime)) {
-        clientesUnicos.set(e.cliente_id, e);
-      }
-      if (e.servico_id && (!servicosUnicos.has(e.servico_id) || new Date(e.event_datetime) > new Date(servicosUnicos.get(e.servico_id)!.event_datetime))) {
-        servicosUnicos.set(e.servico_id, e);
+  const metrics = useMemo(() => {
+    const services = new Map<number, any>();
+    eventos.forEach(e => {
+      if (!e.servico_id) return;
+      const existing = services.get(e.servico_id);
+      if (!existing || new Date(e.event_datetime) > new Date(existing.event_datetime)) {
+        services.set(e.servico_id, e);
       }
     });
 
-    const clientesAtivos = Array.from(clientesUnicos.values()).filter(e => e.servico_status !== 'Cancelado').length;
-    const servicosLiberados = Array.from(servicosUnicos.values()).filter(e => e.servico_status === 'Liberado').length;
-    const servicosBloqueados = Array.from(servicosUnicos.values()).filter(e => e.servico_status === 'Bloqueado').length;
-    const servicosSuspensos = Array.from(servicosUnicos.values()).filter(e => e.servico_status === 'Suspenso').length;
-    const servicosLiberadosArr = Array.from(servicosUnicos.values()).filter(e => e.servico_status === 'Liberado');
-    const mrr = servicosLiberadosArr.reduce((sum, e) => sum + (e.valor_mensalidade || 0), 0);
-    const servicosEmRisco = servicosLiberadosArr.filter(e => e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico');
-    const mrrEmRisco = servicosEmRisco.reduce((sum, e) => sum + (e.valor_mensalidade || 0), 0);
-    const cobrancas = eventosFiltrados.filter(e => e.event_type === 'COBRANCA');
-    const inadimplenciaTotal = cobrancas.filter(e => e.cobranca_status === 'Em Aberto' || e.cobranca_status === 'Vencido').reduce((sum, e) => sum + (e.valor_cobranca || 0), 0);
-    const atendimentos = eventosFiltrados.filter(e => e.event_type === 'ATENDIMENTO');
-    const atendimentosN1 = atendimentos.filter(e => e.setor?.includes('N1') || e.setor === 'Suporte Interno');
-    const ticketN1Por100 = clientesAtivos > 0 ? (atendimentosN1.length / clientesAtivos) * 100 : 0;
-    const temposAtendimento = atendimentos.filter(e => e.tempo_atendimento_min != null).map(e => e.tempo_atendimento_min!);
-    const tempoMedioAtendimento = temposAtendimento.length > 0 ? temposAtendimento.reduce((a, b) => a + b, 0) / temposAtendimento.length : 0;
-    const npsEventos = eventosFiltrados.filter(e => e.event_type === 'NPS' && e.nps_score != null);
-    const promotores = npsEventos.filter(e => e.nps_score! >= 9).length;
-    const neutros = npsEventos.filter(e => e.nps_score! >= 7 && e.nps_score! <= 8).length;
-    const detratores = npsEventos.filter(e => e.nps_score! <= 6).length;
-    const totalNps = promotores + neutros + detratores;
-    const nps = totalNps > 0 ? Math.round(((promotores - detratores) / totalNps) * 100) : 0;
+    const activeServices = Array.from(services.values()).filter(e => e.servico_status === 'Liberado');
+    const mrr = activeServices.reduce((sum, e) => sum + (e.valor_mensalidade || 0), 0);
+    const riskServices = activeServices.filter(e => e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico');
+    const mrrRisco = riskServices.reduce((sum, e) => sum + (e.valor_mensalidade || 0), 0);
+    const ltvTotal = activeServices.reduce((sum, e) => sum + ((e.valor_mensalidade || 0) * 24), 0);
+    const ltvRisco = riskServices.reduce((sum, e) => sum + ((e.valor_mensalidade || 0) * 24), 0);
+    const ltvMedio = activeServices.length > 0 ? ltvTotal / activeServices.length : 0;
+    const clientes = new Set(eventos.map(e => e.cliente_id)).size;
+    const clientesAtivos = new Set(activeServices.map(e => e.cliente_id)).size;
 
-    return { clientesAtivos, servicosLiberados, servicosBloqueados, servicosSuspensos, mrr, mrrEmRisco, inadimplenciaTotal, ticketN1Por100, tempoMedioAtendimento, nps, promotores, neutros, detratores };
-  }, [eventosFiltrados]);
-
-  const clientesEmRisco = useMemo((): ClienteAgregado[] => {
-    const clientesMap = new Map<number, ClienteAgregado>();
-    eventosFiltrados.forEach(e => {
-      if (!clientesMap.has(e.cliente_id)) {
-        clientesMap.set(e.cliente_id, { cliente_id: e.cliente_id, cliente_nome: e.cliente_nome, cliente_email: e.cliente_email, cliente_celular: e.cliente_celular, cliente_cidade: e.cliente_cidade, cliente_uf: e.cliente_uf, cliente_segmento: e.cliente_segmento, plano_nome: e.plano_nome, servico_status: e.servico_status, valor_mensalidade: e.valor_mensalidade, churn_risk_score: e.churn_risk_score, churn_risk_bucket: e.churn_risk_bucket, inadimplencia_total: 0, qtd_atendimentos_30d: 0, ultimo_evento: e.event_datetime, acao_recomendada: e.acao_recomendada_1 });
-      }
-      const cliente = clientesMap.get(e.cliente_id)!;
-      if (new Date(e.event_datetime) > new Date(cliente.ultimo_evento || '')) {
-        cliente.ultimo_evento = e.event_datetime;
-        cliente.churn_risk_score = e.churn_risk_score ?? cliente.churn_risk_score;
-        cliente.churn_risk_bucket = e.churn_risk_bucket ?? cliente.churn_risk_bucket;
-        cliente.servico_status = e.servico_status ?? cliente.servico_status;
-        cliente.acao_recomendada = e.acao_recomendada_1 ?? cliente.acao_recomendada;
-      }
-      if (e.event_type === 'COBRANCA' && (e.cobranca_status === 'Em Aberto' || e.cobranca_status === 'Vencido')) cliente.inadimplencia_total += e.valor_cobranca || 0;
-      if (e.event_type === 'ATENDIMENTO') cliente.qtd_atendimentos_30d++;
-    });
-    return Array.from(clientesMap.values()).filter(c => c.churn_risk_bucket === 'Alto' || c.churn_risk_bucket === 'Crítico').sort((a, b) => (b.churn_risk_score || 0) - (a.churn_risk_score || 0)).slice(0, 20);
-  }, [eventosFiltrados]);
-
-  const filterOptions = useMemo(() => {
-    const ufs = [...new Set(eventos.map(e => e.cliente_uf).filter(Boolean))].sort();
-    const planos = [...new Set(eventos.map(e => e.plano_nome).filter(Boolean))].sort();
-    const segmentos = [...new Set(eventos.map(e => e.cliente_segmento).filter(Boolean))].sort();
-    return { ufs, planos, segmentos };
+    return { mrr, mrrRisco, ltvTotal, ltvRisco, ltvMedio, clientes, clientesAtivos, riskCount: riskServices.length };
   }, [eventos]);
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1
+  }).format(value);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex">
+        <Sidebar />
+        <main className="flex-1 p-6 space-y-6">
+          <Skeleton className="h-10 w-64" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar />
       <main className="flex-1 p-6 lg:p-8 overflow-auto">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Uniforce OPS</h1>
-              <p className="text-muted-foreground mt-1">Prevenção de Churn + Inadimplência</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={fetchEventos} disabled={isLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Atualizar
-              </Button>
-              <Button onClick={loadFromFile} disabled={isLoading}>
-                <Database className="h-4 w-4 mr-2" />
-                Carregar Dados
-              </Button>
-            </div>
+        <div className="max-w-[1600px] mx-auto space-y-6">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold gradient-text">Uniforce OPS</h1>
+            <p className="text-muted-foreground mt-1">Dashboard de Prevenção de Churn & Inadimplência</p>
           </div>
 
-          <GlobalFilters periodo={periodo} setPeriodo={setPeriodo} uf={uf} setUf={setUf} plano={plano} setPlano={setPlano} statusServico={statusServico} setStatusServico={setStatusServico} bucketRisco={bucketRisco} setBucketRisco={setBucketRisco} segmento={segmento} setSegmento={setSegmento} ufs={filterOptions.ufs as string[]} planos={filterOptions.planos as string[]} segmentos={filterOptions.segmentos as string[]} />
+          {/* KPIs Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricCard title="MRR Total" value={formatCurrency(metrics.mrr)} icon={<DollarSign className="h-5 w-5" />} variant="primary" />
+            <MetricCard title="MRR em Risco" value={formatCurrency(metrics.mrrRisco)} subtitle={`${((metrics.mrrRisco / metrics.mrr) * 100 || 0).toFixed(1)}% do total`} icon={<AlertTriangle className="h-5 w-5" />} variant="danger" glowing />
+            <MetricCard title="LTV em Risco" value={formatCurrency(metrics.ltvRisco)} icon={<TrendingDown className="h-5 w-5" />} variant="warning" />
+            <MetricCard title="LTV Médio" value={formatCurrency(metrics.ltvMedio)} icon={<Target className="h-5 w-5" />} variant="purple" />
+            <MetricCard title="Clientes Ativos" value={metrics.clientesAtivos.toLocaleString('pt-BR')} icon={<Users className="h-5 w-5" />} variant="success" />
+            <MetricCard title="Em Risco de Churn" value={metrics.riskCount.toLocaleString('pt-BR')} subtitle="Alto + Crítico" icon={<Zap className="h-5 w-5" />} variant="danger" />
+            <MetricCard title="Faturamento Anual" value={formatCurrency(metrics.mrr * 12)} icon={<Activity className="h-5 w-5" />} variant="primary" />
+            <MetricCard title="LTV Total" value={formatCurrency(metrics.ltvTotal)} icon={<Clock className="h-5 w-5" />} variant="default" />
+          </div>
 
-          {eventos.length === 0 && !isLoading ? (
-            <div className="text-center py-20 bg-card rounded-lg border">
-              <Database className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Nenhum dado carregado</h3>
-              <p className="text-muted-foreground mb-4">Clique para importar os 5000 eventos do arquivo</p>
-              <Button onClick={loadFromFile}><Database className="h-4 w-4 mr-2" />Carregar Dados</Button>
-            </div>
-          ) : (
-            <>
-              <OverviewKPIs kpis={kpis} isLoading={isLoading} />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2"><TopClientesRisco clientes={clientesEmRisco} isLoading={isLoading} /></div>
-                <div><CausaRaizCards eventos={eventosFiltrados} /></div>
-              </div>
-              <TrendChart eventos={eventosFiltrados} />
-            </>
-          )}
+          {/* Charts Row 1 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <MRRChurnChart eventos={eventos} />
+            <ContractEvolutionChart eventos={eventos} />
+          </div>
+
+          {/* Charts Row 2 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <ChurnByPlanChart eventos={eventos} />
+            <ChurnByNeighborhoodChart eventos={eventos} />
+            <LTVChart eventos={eventos} />
+          </div>
+
+          {/* Charts Row 3 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AnnualChurnChart eventos={eventos} />
+            <TopChurnReasonsChart eventos={eventos} />
+          </div>
         </div>
       </main>
     </div>
