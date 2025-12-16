@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown, Users, UserPlus, UserMinus, DollarSign, AlertTriangle, Wifi, ThumbsDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Users, UserPlus, UserMinus, DollarSign, AlertTriangle, Wifi, ThumbsDown, Banknote, Shield } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface KPICardsProps {
   kpis: any;
@@ -11,12 +12,13 @@ const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 
 }).format(v);
 
-function KPICard({ title, value, delta, icon, variant = 'default' }: {
+function KPICard({ title, value, delta, icon, variant = 'default', tooltip }: {
   title: string;
   value: string | number;
   delta?: number;
   icon: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'danger' | 'primary';
+  tooltip?: string;
 }) {
   const variantClasses = {
     default: 'bg-card border-border',
@@ -34,8 +36,8 @@ function KPICard({ title, value, delta, icon, variant = 'default' }: {
     primary: 'text-primary',
   };
 
-  return (
-    <div className={`rounded-xl border p-4 ${variantClasses[variant]}`}>
+  const card = (
+    <div className={`rounded-xl border p-4 ${variantClasses[variant]} cursor-help`}>
       <div className="flex items-center justify-between mb-2">
         <span className={`${iconColors[variant]}`}>{icon}</span>
         {delta !== undefined && delta !== 0 && (
@@ -49,19 +51,35 @@ function KPICard({ title, value, delta, icon, variant = 'default' }: {
       <p className="text-xs text-muted-foreground mt-1">{title}</p>
     </div>
   );
+
+  if (tooltip) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{card}</TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p className="text-sm">{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return card;
 }
 
 export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsProps) {
   if (!kpis) return null;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-4">
       <KPICard 
         title="Clientes Ativos" 
         value={kpis.clientesAtivos.value.toLocaleString('pt-BR')} 
         delta={kpis.clientesAtivos.delta}
         icon={<Users className="h-5 w-5" />} 
         variant="success"
+        tooltip="Total de clientes com serviço ativo no período. Delta MoM."
       />
       <KPICard 
         title="Novos Clientes" 
@@ -69,6 +87,7 @@ export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsP
         delta={kpis.novosClientes.delta}
         icon={<UserPlus className="h-5 w-5" />} 
         variant="primary"
+        tooltip="Clientes que entraram na base no mês. Delta MoM."
       />
       <KPICard 
         title="Churn (Rescisões)" 
@@ -76,6 +95,7 @@ export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsP
         delta={kpis.churnRescisoes.delta}
         icon={<UserMinus className="h-5 w-5" />} 
         variant="danger"
+        tooltip="Clientes que cancelaram no mês. Acompanhe para identificar tendências."
       />
       <KPICard 
         title="MRR Total" 
@@ -83,6 +103,15 @@ export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsP
         delta={kpis.mrrTotal.delta}
         icon={<DollarSign className="h-5 w-5" />} 
         variant="primary"
+        tooltip="Receita Recorrente Mensal total da base ativa."
+      />
+      <KPICard 
+        title="Faturamento Recebido" 
+        value={formatCurrency(kpis.faturamentoRecebido.value)} 
+        delta={kpis.faturamentoRecebido.delta}
+        icon={<Banknote className="h-5 w-5" />} 
+        variant="success"
+        tooltip="Valor efetivamente recebido no mês. Diferença com MRR indica inadimplência."
       />
       <KPICard 
         title="MRR em Risco" 
@@ -90,6 +119,15 @@ export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsP
         delta={kpis.mrrEmRiscoChurn.delta}
         icon={<AlertTriangle className="h-5 w-5" />} 
         variant="danger"
+        tooltip="MRR de clientes com risco Alto/Crítico de churn. Priorize ações de retenção."
+      />
+      <KPICard 
+        title="LTV em Risco" 
+        value={formatCurrency(kpis.ltvEmRiscoChurn.value)} 
+        delta={kpis.ltvEmRiscoChurn.delta}
+        icon={<Shield className="h-5 w-5" />} 
+        variant="danger"
+        tooltip="Valor de vida útil dos clientes em risco de churn. Impacto potencial no longo prazo."
       />
       <KPICard 
         title="R$ Vencido" 
@@ -97,18 +135,21 @@ export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsP
         delta={kpis.rVencido.delta}
         icon={<DollarSign className="h-5 w-5" />} 
         variant="warning"
+        tooltip="Total de cobranças vencidas. Acione fila de cobrança para recuperação."
       />
       <KPICard 
         title="% Sinal Crítico" 
         value={`${sinalCritico.toFixed(1)}%`} 
         icon={<Wifi className="h-5 w-5" />} 
         variant={sinalCritico > 10 ? 'danger' : 'default'}
+        tooltip="% de eventos de sinal com problemas críticos. Priorize manutenção preventiva."
       />
       <KPICard 
         title="% Detratores" 
         value={`${detratores.toFixed(1)}%`} 
         icon={<ThumbsDown className="h-5 w-5" />} 
         variant={detratores > 20 ? 'danger' : 'warning'}
+        tooltip="% de respostas NPS ≤6. Clientes insatisfeitos com alto risco de churn."
       />
     </div>
   );

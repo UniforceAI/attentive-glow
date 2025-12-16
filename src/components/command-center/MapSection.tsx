@@ -56,22 +56,40 @@ const metrics = [
   { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw },
 ] as const;
 
-const cearaCities = [
-  { id: 'fortaleza', name: 'Fortaleza', lat: -3.7172, lng: -38.5433, priority: 1 },
-  { id: 'caucaia', name: 'Caucaia', lat: -3.7361, lng: -38.6531, priority: 2 },
-  { id: 'sobral', name: 'Sobral', lat: -3.6894, lng: -40.3481, priority: 1 },
-  { id: 'juazeiro', name: 'Juazeiro do Norte', lat: -7.2131, lng: -39.3150, priority: 1 },
-  { id: 'crato', name: 'Crato', lat: -7.2356, lng: -39.4097, priority: 2 },
-  { id: 'maracanau', name: 'Maracanaú', lat: -3.8769, lng: -38.6253, priority: 2 },
-  { id: 'iguatu', name: 'Iguatu', lat: -6.3597, lng: -39.2986, priority: 2 },
-  { id: 'quixada', name: 'Quixadá', lat: -4.9706, lng: -39.0147, priority: 2 },
-  { id: 'russas', name: 'Russas', lat: -4.9403, lng: -37.9756, priority: 2 },
-  { id: 'crateus', name: 'Crateús', lat: -5.1783, lng: -40.6778, priority: 2 },
-  { id: 'itapipoca', name: 'Itapipoca', lat: -3.4944, lng: -39.5786, priority: 3 },
-  { id: 'aracati', name: 'Aracati', lat: -4.5617, lng: -37.7697, priority: 3 },
-  { id: 'tiangua', name: 'Tianguá', lat: -3.7294, lng: -40.9925, priority: 3 },
-  { id: 'caninde', name: 'Canindé', lat: -4.3589, lng: -39.3117, priority: 3 },
-];
+// Dynamically extract cities from data instead of hardcoded list
+const extractCitiesFromData = (eventos: Evento[]): typeof baseCities => {
+  const cityMap = new Map<string, { count: number; lat: number; lng: number }>();
+  
+  eventos.forEach(e => {
+    const cidade = e.cliente_cidade;
+    if (!cidade) return;
+    
+    const existing = cityMap.get(cidade);
+    if (existing) {
+      existing.count++;
+    } else {
+      // Use geo_lat/geo_lng if available, otherwise use default position
+      cityMap.set(cidade, {
+        count: 1,
+        lat: e.geo_lat || -5.2 + (Math.random() - 0.5) * 3,
+        lng: e.geo_lng || -39.3 + (Math.random() - 0.5) * 3,
+      });
+    }
+  });
+
+  return Array.from(cityMap.entries())
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 20)
+    .map(([name, data], i) => ({
+      id: name.toLowerCase().replace(/\s+/g, '-'),
+      name,
+      lat: data.lat,
+      lng: data.lng,
+      priority: i < 3 ? 1 : i < 8 ? 2 : 3,
+    }));
+};
+
+const baseCities: { id: string; name: string; lat: number; lng: number; priority: number }[] = [];
 
 // Seeded random for consistent but varied positions per metric
 const seededRandom = (seed: number) => {
@@ -79,21 +97,20 @@ const seededRandom = (seed: number) => {
   return x - Math.floor(x);
 };
 
-const getOffsetForMetric = (cityId: string, metric: string): { lat: number; lng: number } => {
+const getOffsetForMetric = (cityId: string, metric: string, cityIndex: number): { lat: number; lng: number } => {
   const metricSeeds: Record<string, number> = {
     churn: 1, vencido: 7, sinal: 13, detrator: 19, reincidencia: 31
   };
-  const cityIndex = cearaCities.findIndex(c => c.id === cityId);
   const seed = (metricSeeds[metric] || 1) * (cityIndex + 1) * 17;
   
-  const latOffset = (seededRandom(seed) - 0.5) * 0.35;
-  const lngOffset = (seededRandom(seed + 100) - 0.5) * 0.35;
+  const latOffset = (seededRandom(seed) - 0.5) * 0.25;
+  const lngOffset = (seededRandom(seed + 100) - 0.5) * 0.25;
   
   return { lat: latOffset, lng: lngOffset };
 };
 
 interface CityData {
-  city: typeof cearaCities[0];
+  city: { id: string; name: string; lat: number; lng: number; priority: number };
   count: number;
   severity: 'low' | 'medium' | 'high' | 'critical';
   offset: { lat: number; lng: number };
@@ -104,43 +121,59 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.CircleMarker[]>([]);
 
+  // Extract cities dynamically from data
+  const dataCities = useMemo(() => extractCitiesFromData(eventos), [eventos]);
+
+  // Get unique UFs from data for title
+  const uniqueUFs = useMemo(() => {
+    const ufs = new Set<string>();
+    eventos.forEach(e => {
+      if (e.cliente_uf) ufs.add(e.cliente_uf);
+    });
+    return Array.from(ufs);
+  }, [eventos]);
+
   const cityData = useMemo((): CityData[] => {
-    return cearaCities.map((city) => {
+    return dataCities.map((city, idx) => {
       let count = 0;
       let criticalCount = 0;
       
+      // Filter events by city
+      const cityEvents = eventos.filter(e => e.cliente_cidade === city.name);
+      
       switch (metric) {
         case 'churn':
-          count = Math.floor(filaRisco.length / cearaCities.length) + (city.priority === 1 ? 18 : city.priority === 2 ? 10 : 4);
-          criticalCount = Math.floor(count * (city.priority === 1 ? 0.4 : 0.25));
+          count = cityEvents.filter(e => e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico').length;
+          criticalCount = cityEvents.filter(e => e.churn_risk_bucket === 'Crítico').length;
           break;
         case 'vencido':
-          count = Math.floor(eventos.filter(e => e.cobranca_status === 'Vencido').length / cearaCities.length) + (city.priority === 1 ? 22 : 6);
-          criticalCount = Math.floor(count * 0.3);
+          count = cityEvents.filter(e => e.cobranca_status === 'Vencido').length;
+          criticalCount = cityEvents.filter(e => (e.dias_atraso || 0) > 30).length;
           break;
         case 'sinal':
-          count = Math.floor(eventos.filter(e => e.alerta_tipo === 'Sinal crítico').length / cearaCities.length) + (city.priority === 1 ? 12 : 4);
-          criticalCount = Math.floor(count * 0.35);
+          count = cityEvents.filter(e => e.event_type === 'SINAL' && e.alerta_tipo === 'Sinal crítico').length;
+          criticalCount = cityEvents.filter(e => (e.packet_loss_pct || 0) > 5).length;
           break;
         case 'detrator':
-          count = Math.floor(eventos.filter(e => (e.nps_score || 10) <= 6).length / cearaCities.length) + (city.priority === 1 ? 14 : 5);
-          criticalCount = Math.floor(count * 0.3);
+          count = cityEvents.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).length;
+          criticalCount = cityEvents.filter(e => (e.nps_score || 10) <= 4).length;
           break;
         case 'reincidencia':
-          count = Math.floor(eventos.filter(e => e.reincidente_30d).length / cearaCities.length) + (city.priority === 1 ? 10 : 3);
-          criticalCount = Math.floor(count * 0.45);
+          count = cityEvents.filter(e => e.reincidente_30d).length;
+          criticalCount = cityEvents.filter(e => e.reincidente_30d && e.churn_risk_bucket === 'Crítico').length;
           break;
       }
 
       const severity: 'critical' | 'high' | 'medium' | 'low' = 
+        count === 0 ? 'low' :
         criticalCount > count * 0.35 ? 'critical' : 
         criticalCount > count * 0.2 ? 'high' : 
         criticalCount > count * 0.1 ? 'medium' : 'low';
 
-      const offset = getOffsetForMetric(city.id, metric);
-      return { city, count: Math.max(count, 1), severity, offset };
-    });
-  }, [filaRisco, eventos, metric]);
+      const offset = getOffsetForMetric(city.id, metric, idx);
+      return { city, count: Math.max(count, 0), severity, offset };
+    }).filter(d => d.count > 0);
+  }, [dataCities, eventos, metric]);
 
   const totalAlerts = cityData.reduce((sum, d) => sum + d.count, 0);
 
@@ -223,13 +256,15 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     });
   }, [cityData]);
 
+  const mapTitle = uniqueUFs.length > 0 ? uniqueUFs.join(', ') : 'Região';
+
   return (
     <div className="rounded-2xl overflow-hidden border border-slate-700/50 bg-slate-900">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-slate-800/50 border-b border-slate-700/40">
         <div>
-          <h3 className="font-medium text-white text-sm">Ceará — Mapa de Alertas</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">{totalAlerts} alertas em {cearaCities.length} cidades</p>
+          <h3 className="font-medium text-white text-sm">{mapTitle} — Mapa de Alertas</h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">{totalAlerts} alertas em {cityData.length} cidades</p>
         </div>
         <div className="flex gap-1">
           {metrics.map(m => {
