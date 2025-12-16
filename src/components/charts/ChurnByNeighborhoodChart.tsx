@@ -17,12 +17,12 @@ export function ChurnByNeighborhoodChart({ eventos }: ChurnByNeighborhoodChartPr
   const chartData = useMemo(() => {
     const cityStats = new Map<string, { total: number; risco: number; mrr: number }>();
     
-    const services = new Map<number, Evento>();
+    const services = new Map<string, Evento>();
     eventos.forEach(e => {
       if (!e.servico_id) return;
-      const existing = services.get(e.servico_id);
+      const existing = services.get(String(e.servico_id));
       if (!existing || new Date(e.event_datetime) > new Date(existing.event_datetime)) {
-        services.set(e.servico_id, e);
+        services.set(String(e.servico_id), e);
       }
     });
 
