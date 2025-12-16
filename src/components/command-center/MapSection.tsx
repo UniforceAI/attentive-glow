@@ -1,7 +1,7 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Evento, ClienteRisco, ClienteCobranca } from "@/types/evento";
 import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, TrendingDown } from "lucide-react";
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 interface MapSectionProps {
@@ -42,18 +42,6 @@ interface CityData {
   city: typeof cearaCities[0];
   count: number;
   severity: 'low' | 'medium' | 'high' | 'critical';
-}
-
-// Component to handle map dark theme
-function DarkMapStyle() {
-  const map = useMap();
-  
-  useEffect(() => {
-    const container = map.getContainer();
-    container.style.background = '#1a2332';
-  }, [map]);
-  
-  return null;
 }
 
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
@@ -109,8 +97,8 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
   };
 
   const getMarkerRadius = (priority: number, count: number) => {
-    const base = priority === 1 ? 20 : priority === 2 ? 15 : 12;
-    return base + Math.min(count / 10, 8);
+    const base = priority === 1 ? 18 : priority === 2 ? 14 : 10;
+    return base + Math.min(count / 15, 6);
   };
 
   // Center of Ceará
@@ -154,17 +142,13 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
           attributionControl={false}
           style={{ background: '#1a2332' }}
         >
-          <DarkMapStyle />
-          
-          {/* Dark theme tiles */}
+          {/* Dark theme tiles - CartoDB Dark */}
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           />
 
           {/* City markers */}
           {cityData.map((data) => {
-            const isHovered = hoveredCity === data.city.id;
             const color = getMarkerColor(data.severity);
             const radius = getMarkerRadius(data.city.priority, data.count);
             
@@ -172,12 +156,12 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
               <CircleMarker
                 key={data.city.id}
                 center={[data.city.lat, data.city.lng]}
-                radius={isHovered ? radius * 1.2 : radius}
+                radius={radius}
                 pathOptions={{
                   color: color,
                   fillColor: color,
-                  fillOpacity: 0.85,
-                  weight: isHovered ? 3 : 2,
+                  fillOpacity: 0.8,
+                  weight: 2,
                   opacity: 1,
                 }}
                 eventHandlers={{
@@ -185,39 +169,76 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
                   mouseout: () => setHoveredCity(null),
                 }}
               >
-                <Tooltip 
-                  permanent={data.city.priority === 1}
-                  direction="top"
-                  offset={[0, -radius]}
-                  className="custom-tooltip"
-                >
-                  <div className="text-center">
-                    <div className="font-bold text-lg" style={{ color }}>{data.count}</div>
-                    <div className="text-xs text-slate-600">{data.city.name}</div>
+                <Popup>
+                  <div className="text-center p-1">
+                    <div className="font-bold text-base" style={{ color }}>{data.count}</div>
+                    <div className="text-xs text-gray-600">{data.city.name}</div>
+                    <div className="text-xs mt-1" style={{ color }}>
+                      {data.severity === 'critical' ? 'Crítico' :
+                       data.severity === 'high' ? 'Alto' :
+                       data.severity === 'medium' ? 'Médio' : 'Baixo'}
+                    </div>
                   </div>
-                </Tooltip>
+                </Popup>
               </CircleMarker>
             );
           })}
         </MapContainer>
 
-        {/* Custom styles for tooltips */}
+        {/* Overlay labels for main cities */}
+        <div className="absolute inset-0 pointer-events-none z-[1000]">
+          {cityData.filter(d => d.city.priority === 1).map((data) => {
+            const color = getMarkerColor(data.severity);
+            // Approximate screen positions for main cities
+            const positions: Record<string, { left: string; top: string }> = {
+              fortaleza: { left: '72%', top: '18%' },
+              sobral: { left: '22%', top: '22%' },
+              juazeiro: { left: '48%', top: '78%' },
+            };
+            const pos = positions[data.city.id];
+            if (!pos) return null;
+            
+            return (
+              <div
+                key={data.city.id}
+                className="absolute flex flex-col items-center"
+                style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
+              >
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg"
+                  style={{ backgroundColor: color }}
+                >
+                  {data.count}
+                </div>
+                <div className="mt-1 text-[10px] text-white bg-slate-900/80 px-2 py-0.5 rounded">
+                  {data.city.name}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Leaflet CSS overrides */}
         <style>{`
-          .custom-tooltip {
-            background: rgba(15, 23, 42, 0.95) !important;
-            border: 1px solid rgba(100, 116, 139, 0.3) !important;
-            border-radius: 8px !important;
-            padding: 6px 10px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
-          }
-          .custom-tooltip .leaflet-tooltip-content {
-            margin: 0 !important;
-          }
-          .custom-tooltip::before {
-            display: none !important;
-          }
           .leaflet-container {
-            font-family: inherit !important;
+            font-family: inherit;
+            background: #1a2332;
+          }
+          .leaflet-popup-content-wrapper {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          }
+          .leaflet-popup-content {
+            margin: 8px 12px;
+            color: white;
+          }
+          .leaflet-popup-tip {
+            background: rgba(15, 23, 42, 0.95);
+          }
+          .leaflet-popup-close-button {
+            color: #94a3b8 !important;
           }
         `}</style>
       </div>
