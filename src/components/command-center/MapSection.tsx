@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Evento, ClienteRisco, ClienteCobranca } from "@/types/evento";
 import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, TrendingDown } from "lucide-react";
+import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 interface MapSectionProps {
   filaRisco: ClienteRisco[];
@@ -18,19 +20,22 @@ const metrics = [
   { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw },
 ] as const;
 
+// Real coordinates for Ceará cities
 const cearaCities = [
-  { id: 'fortaleza', name: 'Fortaleza', x: 78, y: 22, priority: 1 },
-  { id: 'caucaia', name: 'Caucaia', x: 68, y: 26, priority: 2 },
-  { id: 'sobral', name: 'Sobral', x: 28, y: 30, priority: 1 },
-  { id: 'juazeiro', name: 'Juazeiro do Norte', x: 42, y: 82, priority: 1 },
-  { id: 'crato', name: 'Crato', x: 36, y: 88, priority: 2 },
-  { id: 'maracanau', name: 'Maracanaú', x: 72, y: 28, priority: 2 },
-  { id: 'iguatu', name: 'Iguatu', x: 45, y: 62, priority: 2 },
-  { id: 'quixada', name: 'Quixadá', x: 58, y: 42, priority: 2 },
-  { id: 'russas', name: 'Russas', x: 82, y: 38, priority: 2 },
-  { id: 'crateus', name: 'Crateús', x: 22, y: 52, priority: 2 },
-  { id: 'itapipoca', name: 'Itapipoca', x: 50, y: 22, priority: 3 },
-  { id: 'aracati', name: 'Aracati', x: 88, y: 34, priority: 3 },
+  { id: 'fortaleza', name: 'Fortaleza', lat: -3.7172, lng: -38.5433, priority: 1 },
+  { id: 'caucaia', name: 'Caucaia', lat: -3.7361, lng: -38.6531, priority: 2 },
+  { id: 'sobral', name: 'Sobral', lat: -3.6894, lng: -40.3481, priority: 1 },
+  { id: 'juazeiro', name: 'Juazeiro do Norte', lat: -7.2131, lng: -39.3150, priority: 1 },
+  { id: 'crato', name: 'Crato', lat: -7.2356, lng: -39.4097, priority: 2 },
+  { id: 'maracanau', name: 'Maracanaú', lat: -3.8769, lng: -38.6253, priority: 2 },
+  { id: 'iguatu', name: 'Iguatu', lat: -6.3597, lng: -39.2986, priority: 2 },
+  { id: 'quixada', name: 'Quixadá', lat: -4.9706, lng: -39.0147, priority: 2 },
+  { id: 'russas', name: 'Russas', lat: -4.9403, lng: -37.9756, priority: 2 },
+  { id: 'crateus', name: 'Crateús', lat: -5.1783, lng: -40.6778, priority: 2 },
+  { id: 'itapipoca', name: 'Itapipoca', lat: -3.4944, lng: -39.5786, priority: 3 },
+  { id: 'aracati', name: 'Aracati', lat: -4.5617, lng: -37.7697, priority: 3 },
+  { id: 'tiangua', name: 'Tianguá', lat: -3.7294, lng: -40.9925, priority: 3 },
+  { id: 'caninde', name: 'Canindé', lat: -4.3589, lng: -39.3117, priority: 3 },
 ];
 
 interface CityData {
@@ -39,8 +44,20 @@ interface CityData {
   severity: 'low' | 'medium' | 'high' | 'critical';
 }
 
+// Component to handle map dark theme
+function DarkMapStyle() {
+  const map = useMap();
+  
+  useEffect(() => {
+    const container = map.getContainer();
+    container.style.background = '#1a2332';
+  }, [map]);
+  
+  return null;
+}
+
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
-  const [hoveredCity, setHoveredCity] = useState<CityData | null>(null);
+  const [hoveredCity, setHoveredCity] = useState<string | null>(null);
 
   const cityData = useMemo((): CityData[] => {
     return cearaCities.map((city) => {
@@ -49,55 +66,63 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
       
       switch (metric) {
         case 'churn':
-          count = Math.floor(filaRisco.length / cearaCities.length) + (city.priority === 1 ? 15 : city.priority === 2 ? 8 : 3);
-          criticalCount = Math.floor(count * 0.3);
+          count = Math.floor(filaRisco.length / cearaCities.length) + (city.priority === 1 ? 18 : city.priority === 2 ? 10 : 4);
+          criticalCount = Math.floor(count * (city.priority === 1 ? 0.4 : 0.25));
           break;
         case 'vencido':
-          count = Math.floor(eventos.filter(e => e.cobranca_status === 'Vencido').length / cearaCities.length) + (city.priority === 1 ? 20 : 5);
-          criticalCount = Math.floor(count * 0.25);
+          count = Math.floor(eventos.filter(e => e.cobranca_status === 'Vencido').length / cearaCities.length) + (city.priority === 1 ? 22 : 6);
+          criticalCount = Math.floor(count * 0.3);
           break;
         case 'sinal':
-          count = Math.floor(eventos.filter(e => e.alerta_tipo === 'Sinal crítico').length / cearaCities.length) + (city.priority === 1 ? 10 : 3);
-          criticalCount = Math.floor(count * 0.4);
-          break;
-        case 'detrator':
-          count = Math.floor(eventos.filter(e => (e.nps_score || 10) <= 6).length / cearaCities.length) + (city.priority === 1 ? 12 : 4);
+          count = Math.floor(eventos.filter(e => e.alerta_tipo === 'Sinal crítico').length / cearaCities.length) + (city.priority === 1 ? 12 : 4);
           criticalCount = Math.floor(count * 0.35);
           break;
+        case 'detrator':
+          count = Math.floor(eventos.filter(e => (e.nps_score || 10) <= 6).length / cearaCities.length) + (city.priority === 1 ? 14 : 5);
+          criticalCount = Math.floor(count * 0.3);
+          break;
         case 'reincidencia':
-          count = Math.floor(eventos.filter(e => e.reincidente_30d).length / cearaCities.length) + (city.priority === 1 ? 8 : 2);
-          criticalCount = Math.floor(count * 0.5);
+          count = Math.floor(eventos.filter(e => e.reincidente_30d).length / cearaCities.length) + (city.priority === 1 ? 10 : 3);
+          criticalCount = Math.floor(count * 0.45);
           break;
       }
 
       const severity: 'critical' | 'high' | 'medium' | 'low' = 
-        criticalCount > count * 0.4 ? 'critical' : 
-        criticalCount > count * 0.25 ? 'high' : 
+        criticalCount > count * 0.35 ? 'critical' : 
+        criticalCount > count * 0.2 ? 'high' : 
         criticalCount > count * 0.1 ? 'medium' : 'low';
 
       return { city, count: Math.max(count, 1), severity };
-    }).sort((a, b) => b.count - a.count);
+    });
   }, [filaRisco, eventos, metric]);
 
   const totalAlerts = cityData.reduce((sum, d) => sum + d.count, 0);
 
-  const getBubbleStyle = (severity: string) => {
+  const getMarkerColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-500 shadow-red-500/40';
-      case 'high': return 'bg-amber-500 shadow-amber-500/40';
-      case 'medium': return 'bg-sky-500 shadow-sky-500/40';
-      case 'low': return 'bg-emerald-500 shadow-emerald-500/40';
-      default: return 'bg-slate-500 shadow-slate-500/40';
+      case 'critical': return '#ef4444';
+      case 'high': return '#f59e0b';
+      case 'medium': return '#0ea5e9';
+      case 'low': return '#22c55e';
+      default: return '#64748b';
     }
   };
 
+  const getMarkerRadius = (priority: number, count: number) => {
+    const base = priority === 1 ? 20 : priority === 2 ? 15 : 12;
+    return base + Math.min(count / 10, 8);
+  };
+
+  // Center of Ceará
+  const cearaCenter: [number, number] = [-5.2, -39.3];
+
   return (
-    <div className="rounded-2xl overflow-hidden border border-slate-700/50 bg-[#1a2332]">
+    <div className="rounded-2xl overflow-hidden border border-slate-700/50 bg-slate-900">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-[#1e2a3a] border-b border-slate-700/40">
+      <div className="flex items-center justify-between px-5 py-3 bg-slate-800/50 border-b border-slate-700/40">
         <div>
           <h3 className="font-medium text-white text-sm">Ceará — Mapa de Alertas</h3>
-          <p className="text-[11px] text-slate-400 mt-0.5">{totalAlerts} alertas ativos</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{totalAlerts} alertas em {cearaCities.length} cidades</p>
         </div>
         <div className="flex gap-1">
           {metrics.map(m => {
@@ -119,160 +144,86 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         </div>
       </div>
 
-      {/* Map Container */}
-      <div 
-        className="relative h-[420px] md:h-[480px]"
-        style={{
-          background: `
-            linear-gradient(180deg, #1a2332 0%, #151d2a 100%)
-          `
-        }}
-      >
-        {/* Street Grid Pattern - Horizontal lines */}
-        <div className="absolute inset-0 opacity-[0.08]">
-          {[...Array(20)].map((_, i) => (
-            <div 
-              key={`h-${i}`} 
-              className="absolute w-full h-px bg-slate-400"
-              style={{ top: `${(i + 1) * 5}%` }}
-            />
-          ))}
-        </div>
-        
-        {/* Street Grid Pattern - Vertical lines */}
-        <div className="absolute inset-0 opacity-[0.08]">
-          {[...Array(20)].map((_, i) => (
-            <div 
-              key={`v-${i}`} 
-              className="absolute h-full w-px bg-slate-400"
-              style={{ left: `${(i + 1) * 5}%` }}
-            />
-          ))}
-        </div>
-
-        {/* Main Roads - Thicker lines */}
-        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {/* BR-116: Fortaleza to Juazeiro */}
-          <path d="M78,22 Q60,45 42,82" stroke="#2d4a5e" strokeWidth="0.8" fill="none" strokeLinecap="round"/>
-          {/* BR-222: Fortaleza to Sobral */}
-          <path d="M78,22 L28,30" stroke="#2d4a5e" strokeWidth="0.8" fill="none" strokeLinecap="round"/>
-          {/* CE-040: Costa Leste */}
-          <path d="M78,22 L88,34" stroke="#2d4a5e" strokeWidth="0.6" fill="none" strokeLinecap="round"/>
-          {/* BR-020: Fortaleza to Crateús */}
-          <path d="M78,22 Q50,35 22,52" stroke="#2d4a5e" strokeWidth="0.6" fill="none" strokeLinecap="round"/>
-          {/* Iguatu connection */}
-          <path d="M45,62 L42,82" stroke="#2d4a5e" strokeWidth="0.5" fill="none" strokeLinecap="round"/>
-          {/* Russas connection */}
-          <path d="M82,38 L58,42" stroke="#2d4a5e" strokeWidth="0.5" fill="none" strokeLinecap="round"/>
+      {/* Map */}
+      <div className="h-[420px] md:h-[480px] relative">
+        <MapContainer
+          center={cearaCenter}
+          zoom={7}
+          className="h-full w-full"
+          zoomControl={false}
+          attributionControl={false}
+          style={{ background: '#1a2332' }}
+        >
+          <DarkMapStyle />
           
-          {/* Secondary roads */}
-          <path d="M68,26 L72,28" stroke="#253545" strokeWidth="0.4" fill="none"/>
-          <path d="M72,28 L78,22" stroke="#253545" strokeWidth="0.4" fill="none"/>
-          <path d="M50,22 L68,26" stroke="#253545" strokeWidth="0.4" fill="none"/>
-          <path d="M58,42 L45,62" stroke="#253545" strokeWidth="0.4" fill="none"/>
-          <path d="M36,88 L42,82" stroke="#253545" strokeWidth="0.4" fill="none"/>
-        </svg>
-
-        {/* State outline - very subtle */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path 
-            d="M15,15 Q30,8 50,10 Q70,8 90,18 Q95,30 92,50 Q88,70 80,85 Q60,98 40,98 Q25,95 15,80 Q8,60 10,40 Q12,25 15,15 Z"
-            fill="none"
-            stroke="#3b5068"
-            strokeWidth="0.3"
-            strokeDasharray="1,1"
-            opacity="0.5"
+          {/* Dark theme tiles */}
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           />
-        </svg>
 
-        {/* City Markers */}
-        {cityData.map((data) => {
-          const isHovered = hoveredCity?.city.id === data.city.id;
-          const size = data.city.priority === 1 ? 44 : data.city.priority === 2 ? 36 : 28;
-          
-          return (
-            <div
-              key={data.city.id}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer"
-              style={{
-                left: `${data.city.x}%`,
-                top: `${data.city.y}%`,
-                zIndex: isHovered ? 50 : data.city.priority === 1 ? 30 : 20,
-              }}
-              onMouseEnter={() => setHoveredCity(data)}
-              onMouseLeave={() => setHoveredCity(null)}
-            >
-              {/* Clean circular badge */}
-              <div 
-                className={`
-                  flex items-center justify-center rounded-full
-                  font-semibold text-white shadow-lg
-                  transition-transform duration-150 ease-out
-                  ${getBubbleStyle(data.severity)}
-                  ${isHovered ? 'scale-110' : 'scale-100'}
-                `}
-                style={{ 
-                  width: size, 
-                  height: size,
-                  fontSize: data.city.priority === 1 ? 14 : data.city.priority === 2 ? 12 : 10
+          {/* City markers */}
+          {cityData.map((data) => {
+            const isHovered = hoveredCity === data.city.id;
+            const color = getMarkerColor(data.severity);
+            const radius = getMarkerRadius(data.city.priority, data.count);
+            
+            return (
+              <CircleMarker
+                key={data.city.id}
+                center={[data.city.lat, data.city.lng]}
+                radius={isHovered ? radius * 1.2 : radius}
+                pathOptions={{
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.85,
+                  weight: isHovered ? 3 : 2,
+                  opacity: 1,
+                }}
+                eventHandlers={{
+                  mouseover: () => setHoveredCity(data.city.id),
+                  mouseout: () => setHoveredCity(null),
                 }}
               >
-                {data.count}
-              </div>
-
-              {/* City label */}
-              {(data.city.priority === 1 || isHovered) && (
-                <div 
-                  className={`
-                    absolute left-1/2 -translate-x-1/2 whitespace-nowrap
-                    text-[10px] font-medium px-2 py-0.5 rounded
-                    transition-opacity duration-150
-                    ${isHovered ? 'bg-slate-800 text-white' : 'text-slate-400'}
-                  `}
-                  style={{ top: size + 4 }}
+                <Tooltip 
+                  permanent={data.city.priority === 1}
+                  direction="top"
+                  offset={[0, -radius]}
+                  className="custom-tooltip"
                 >
-                  {data.city.name}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                  <div className="text-center">
+                    <div className="font-bold text-lg" style={{ color }}>{data.count}</div>
+                    <div className="text-xs text-slate-600">{data.city.name}</div>
+                  </div>
+                </Tooltip>
+              </CircleMarker>
+            );
+          })}
+        </MapContainer>
 
-        {/* Tooltip */}
-        {hoveredCity && (
-          <div 
-            className="absolute z-[100] pointer-events-none"
-            style={{
-              left: `${hoveredCity.city.x}%`,
-              top: `${hoveredCity.city.y - 12}%`,
-              transform: 'translate(-50%, -100%)',
-            }}
-          >
-            <div className="bg-slate-900 border border-slate-600/50 rounded-lg shadow-xl px-3 py-2 min-w-[140px]">
-              <div className="font-medium text-white text-sm">{hoveredCity.city.name}</div>
-              <div className="flex justify-between text-xs mt-1.5">
-                <span className="text-slate-400">Alertas</span>
-                <span className="text-white">{hoveredCity.count}</span>
-              </div>
-              <div className="flex justify-between text-xs mt-0.5">
-                <span className="text-slate-400">Nível</span>
-                <span className={`
-                  ${hoveredCity.severity === 'critical' ? 'text-red-400' :
-                    hoveredCity.severity === 'high' ? 'text-amber-400' :
-                    hoveredCity.severity === 'medium' ? 'text-sky-400' : 'text-emerald-400'}
-                `}>
-                  {hoveredCity.severity === 'critical' ? 'Crítico' :
-                   hoveredCity.severity === 'high' ? 'Alto' :
-                   hoveredCity.severity === 'medium' ? 'Médio' : 'Baixo'}
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Custom styles for tooltips */}
+        <style>{`
+          .custom-tooltip {
+            background: rgba(15, 23, 42, 0.95) !important;
+            border: 1px solid rgba(100, 116, 139, 0.3) !important;
+            border-radius: 8px !important;
+            padding: 6px 10px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+          }
+          .custom-tooltip .leaflet-tooltip-content {
+            margin: 0 !important;
+          }
+          .custom-tooltip::before {
+            display: none !important;
+          }
+          .leaflet-container {
+            font-family: inherit !important;
+          }
+        `}</style>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-5 py-2.5 bg-[#1e2a3a] border-t border-slate-700/40">
+      <div className="flex items-center justify-between px-5 py-2.5 bg-slate-800/50 border-t border-slate-700/40">
         <div className="flex gap-5">
           {[
             { color: 'bg-red-500', label: 'Crítico' },
@@ -288,7 +239,9 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         </div>
         <div className="flex items-center gap-1.5">
           <AlertTriangle className="h-3.5 w-3.5 text-slate-500" />
-          <span className="text-xs text-slate-400">{cityData.filter(d => d.severity === 'critical' || d.severity === 'high').length} cidades em alerta</span>
+          <span className="text-xs text-slate-400">
+            {cityData.filter(d => d.severity === 'critical' || d.severity === 'high').length} cidades em alerta
+          </span>
         </div>
       </div>
     </div>
