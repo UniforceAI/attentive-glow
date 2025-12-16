@@ -1,8 +1,10 @@
 import { ClienteRisco } from "@/types/evento";
-import { AlertTriangle, Phone, Mail, Gift } from "lucide-react";
+import { AlertTriangle, Phone, Mail, Gift, Plus, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface FilaRiscoProps {
   fila: ClienteRisco[];
@@ -10,11 +12,45 @@ interface FilaRiscoProps {
 
 export function FilaRisco({ fila }: FilaRiscoProps) {
   const { toast } = useToast();
+  const [completados, setCompletados] = useState<Set<string>>(new Set());
 
-  const handleAction = (cliente: string, acao: string) => {
+  const handleAction = (clienteId: string, clienteNome: string, acao: string) => {
     toast({
-      title: "Ação registrada",
-      description: `${acao} para ${cliente}`,
+      title: "Ação executada",
+      description: `${acao} para ${clienteNome}`,
+    });
+    // Log action
+    console.log('[ACAO_LOG]', {
+      datetime: new Date().toISOString(),
+      usuario: 'admin',
+      cliente_id: clienteId,
+      tipo_acao: acao,
+      resultado: 'success',
+      origem: 'fila_risco',
+    });
+  };
+
+  const handleConcluir = (clienteId: string, clienteNome: string) => {
+    setCompletados(prev => new Set(prev).add(clienteId));
+    toast({
+      title: "Concluído",
+      description: `Cliente ${clienteNome} removido da fila do dia`,
+    });
+    // Log completion
+    console.log('[ACAO_LOG]', {
+      datetime: new Date().toISOString(),
+      usuario: 'admin',
+      cliente_id: clienteId,
+      tipo_acao: 'concluir',
+      resultado: 'success',
+      origem: 'fila_risco',
+    });
+  };
+
+  const handleCriarTarefa = (clienteId: string, clienteNome: string) => {
+    toast({
+      title: "Tarefa criada",
+      description: `Tarefa adicionada para ${clienteNome} no módulo Ações`,
     });
   };
 
@@ -26,14 +62,22 @@ export function FilaRisco({ fila }: FilaRiscoProps) {
     }
   };
 
+  const getActionIcon = (index: number) => {
+    const icons = [Phone, Mail, Gift];
+    return icons[index] || Phone;
+  };
+
+  const filaAtiva = fila.filter(c => !completados.has(c.cliente_id));
+
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-destructive" />
           <h3 className="font-semibold text-foreground">Fila de Risco (Hoje)</h3>
-          <Badge variant="destructive" className="ml-2">{fila.length}</Badge>
+          <Badge variant="destructive" className="ml-2">{filaAtiva.length}</Badge>
         </div>
+        <span className="text-xs text-muted-foreground">{completados.size} concluídos</span>
       </div>
 
       <div className="max-h-[400px] overflow-auto">
@@ -49,7 +93,7 @@ export function FilaRisco({ fila }: FilaRiscoProps) {
             </tr>
           </thead>
           <tbody>
-            {fila.slice(0, 20).map((c) => (
+            {filaAtiva.slice(0, 20).map((c) => (
               <tr key={c.cliente_id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="px-4 py-3">
                   <p className="font-medium text-foreground text-sm">{c.cliente_nome}</p>
@@ -72,22 +116,65 @@ export function FilaRisco({ fila }: FilaRiscoProps) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
-                    {c.acoes.slice(0, 3).map((a, i) => {
-                      const icons = [Phone, Mail, Gift];
-                      const Icon = icons[i] || Phone;
-                      return (
-                        <Button
-                          key={i}
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          title={a}
-                          onClick={() => handleAction(c.cliente_nome, a)}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                        </Button>
-                      );
-                    })}
+                    <TooltipProvider>
+                      {c.acoes.length > 0 ? (
+                        c.acoes.slice(0, 3).map((acao, i) => {
+                          const Icon = getActionIcon(i);
+                          return (
+                            <Tooltip key={i}>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleAction(c.cliente_id, c.cliente_nome, acao)}
+                                >
+                                  <Icon className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">{acao}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleAction(c.cliente_id, c.cliente_nome, 'Ligar')}>
+                                <Phone className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Ligar para cliente</p></TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleAction(c.cliente_id, c.cliente_nome, 'Email')}>
+                                <Mail className="h-3.5 w-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p className="text-xs">Enviar email</p></TooltipContent>
+                          </Tooltip>
+                        </>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleCriarTarefa(c.cliente_id, c.cliente_nome)}>
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p className="text-xs">Criar tarefa</p></TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="default" className="h-7 px-2" onClick={() => handleConcluir(c.cliente_id, c.cliente_nome)}>
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p className="text-xs">Concluir</p></TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </td>
               </tr>
@@ -95,7 +182,7 @@ export function FilaRisco({ fila }: FilaRiscoProps) {
           </tbody>
         </table>
 
-        {fila.length === 0 && (
+        {filaAtiva.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             Nenhum cliente em risco alto/crítico
           </div>

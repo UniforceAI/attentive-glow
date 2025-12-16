@@ -18,12 +18,12 @@ import { Button } from "@/components/ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Visão Geral", path: "/" },
-  { icon: TrendingDown, label: "Churn", path: "/churn" },
-  { icon: CreditCard, label: "Inadimplência", path: "/inadimplencia" },
-  { icon: Headphones, label: "Suporte N1", path: "/suporte" },
+  { icon: TrendingDown, label: "Churn & Retenção", path: "/churn" },
+  { icon: CreditCard, label: "Financeiro", path: "/inadimplencia" },
+  { icon: Headphones, label: "Suporte", path: "/suporte" },
   { icon: Wifi, label: "Saúde de Rede", path: "/rede" },
-  { icon: Star, label: "NPS", path: "/nps" },
-  { icon: Users, label: "Clientes", path: "/clientes" },
+  { icon: Star, label: "NPS & Experiência", path: "/nps" },
+  { icon: Users, label: "Clientes & Cohorts", path: "/clientes" },
   { icon: ClipboardList, label: "Ações", path: "/acoes" },
   { icon: BarChart3, label: "Tendências", path: "/tendencias" },
 ];

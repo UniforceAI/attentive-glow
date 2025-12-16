@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart, Area, Cell } from "recharts";
-import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, HeadphonesIcon, Wifi, ThumbsUp, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, TrendingDown, DollarSign, HeadphonesIcon, Wifi, ThumbsUp, Target, Pin, PinOff } from "lucide-react";
 import { Evento, MetricaMensal } from "@/types/evento";
+import { Button } from "@/components/ui/button";
 
 interface MegaDashProps {
   eventos: Evento[];
@@ -27,19 +28,38 @@ const COLORS = ['hsl(0, 72%, 51%)', 'hsl(38, 92%, 50%)', 'hsl(217, 91%, 60%)', '
 export function MegaDash({ eventos, metricasMensais, ltvStats }: MegaDashProps) {
   const [view, setView] = useState<ViewType>('churn');
   const [dimension, setDimension] = useState<DimensionType>('plano');
+  const [isPinned, setIsPinned] = useState(false);
+  const [pinnedView, setPinnedView] = useState<ViewType | null>(null);
+  const [pinnedDimension, setPinnedDimension] = useState<DimensionType | null>(null);
+
+  const activeView = isPinned && pinnedView ? pinnedView : view;
+  const activeDimension = isPinned && pinnedDimension ? pinnedDimension : dimension;
 
   const cycleDimension = (dir: 'prev' | 'next') => {
+    if (isPinned) return;
     const dims: DimensionType[] = ['plano', 'cidade', 'bairro'];
     const idx = dims.indexOf(dimension);
     const newIdx = dir === 'next' ? (idx + 1) % 3 : (idx - 1 + 3) % 3;
     setDimension(dims[newIdx]);
   };
 
+  const handlePin = () => {
+    if (isPinned) {
+      setIsPinned(false);
+      setPinnedView(null);
+      setPinnedDimension(null);
+    } else {
+      setIsPinned(true);
+      setPinnedView(view);
+      setPinnedDimension(dimension);
+    }
+  };
+
   // Chart data generators
   const chartData = useMemo(() => {
-    switch (view) {
+    switch (activeView) {
       case 'churn':
-        return getChurnData(eventos, dimension);
+        return getChurnData(eventos, activeDimension);
       case 'contratos':
         return getContratosData(metricasMensais);
       case 'financeiro':
@@ -47,15 +67,15 @@ export function MegaDash({ eventos, metricasMensais, ltvStats }: MegaDashProps) 
       case 'suporte':
         return getSuporteData(eventos);
       case 'rede':
-        return getRedeData(eventos, dimension);
+        return getRedeData(eventos, activeDimension);
       case 'nps':
         return getNPSData(eventos);
       case 'ltv':
-        return getLTVData(ltvStats, dimension);
+        return getLTVData(ltvStats, activeDimension);
       default:
         return [];
     }
-  }, [view, dimension, eventos, metricasMensais, ltvStats]);
+  }, [activeView, activeDimension, eventos, metricasMensais, ltvStats]);
 
   return (
     <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -67,11 +87,12 @@ export function MegaDash({ eventos, metricasMensais, ltvStats }: MegaDashProps) 
             return (
               <button
                 key={v.key}
-                onClick={() => setView(v.key as ViewType)}
+                onClick={() => !isPinned && setView(v.key as ViewType)}
+                disabled={isPinned}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors ${
-                  view === v.key 
+                  activeView === v.key 
                     ? 'bg-primary text-primary-foreground' 
-                    : 'text-muted-foreground hover:bg-muted'
+                    : isPinned ? 'text-muted-foreground/50 cursor-not-allowed' : 'text-muted-foreground hover:bg-muted'
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -81,24 +102,46 @@ export function MegaDash({ eventos, metricasMensais, ltvStats }: MegaDashProps) 
           })}
         </div>
         
-        {/* Dimension Switcher */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => cycleDimension('prev')} className="p-1 rounded hover:bg-muted">
-            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <span className="text-xs font-medium text-muted-foreground min-w-[60px] text-center capitalize">
-            {dimension}
-          </span>
-          <button onClick={() => cycleDimension('next')} className="p-1 rounded hover:bg-muted">
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Pin Button */}
+          <Button 
+            variant={isPinned ? "default" : "ghost"} 
+            size="sm" 
+            onClick={handlePin}
+            className="h-8"
+            title={isPinned ? "Desbloquear visualização" : "Fixar visualização"}
+          >
+            {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+            <span className="ml-1 hidden lg:inline">{isPinned ? 'Fixado' : 'Fixar'}</span>
+          </Button>
+          
+          {/* Dimension Switcher */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => cycleDimension('prev')} 
+              disabled={isPinned}
+              className={`p-1 rounded hover:bg-muted ${isPinned ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <span className="text-xs font-medium text-muted-foreground min-w-[60px] text-center capitalize">
+              {activeDimension}
+            </span>
+            <button 
+              onClick={() => cycleDimension('next')} 
+              disabled={isPinned}
+              className={`p-1 rounded hover:bg-muted ${isPinned ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Chart */}
       <div className="h-[350px] p-4">
         <ResponsiveContainer width="100%" height="100%">
-          {renderChart(view, chartData)}
+          {renderChart(activeView, chartData)}
         </ResponsiveContainer>
       </div>
     </div>
@@ -200,11 +243,19 @@ function getChurnData(eventos: Evento[], dimension: DimensionType) {
 }
 
 function getContratosData(metricas: MetricaMensal[]) {
-  return metricas.map((m, i, arr) => ({
-    mes: m.mes.slice(5),
-    ativos: m.clientes_ativos,
-    crescimento: i > 0 ? ((m.clientes_ativos - arr[i-1].clientes_ativos) / arr[i-1].clientes_ativos * 100) : 0,
-  }));
+  return metricas.map((m, i, arr) => {
+    const prevAtivos = i > 0 ? arr[i-1].clientes_ativos : m.clientes_ativos;
+    const variacaoAbs = m.clientes_ativos - prevAtivos;
+    const crescimento = prevAtivos > 0 ? (variacaoAbs / prevAtivos * 100) : 0;
+    return {
+      mes: m.mes.slice(5),
+      ativos: m.clientes_ativos,
+      novos: m.novos_clientes,
+      churn: m.churn_rescisoes,
+      crescimento: crescimento,
+      variacaoLabel: `${variacaoAbs >= 0 ? '+' : ''}${variacaoAbs} (${crescimento >= 0 ? '+' : ''}${crescimento.toFixed(1)}%)`,
+    };
+  });
 }
 
 function getFinanceiroData(metricas: MetricaMensal[]) {
