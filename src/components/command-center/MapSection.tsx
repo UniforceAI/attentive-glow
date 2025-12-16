@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Evento, ClienteRisco, ClienteCobranca } from "@/types/evento";
-import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, Navigation2, Layers } from "lucide-react";
+import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, Users, TrendingDown, Zap, Activity } from "lucide-react";
 
 interface MapSectionProps {
   filaRisco: ClienteRisco[];
@@ -11,642 +11,335 @@ interface MapSectionProps {
 }
 
 const metrics = [
-  { key: 'churn', label: 'Churn', icon: AlertTriangle },
+  { key: 'churn', label: 'Churn', icon: TrendingDown },
   { key: 'vencido', label: 'Vencido', icon: DollarSign },
   { key: 'sinal', label: 'Sinal', icon: Wifi },
   { key: 'detrator', label: 'NPS', icon: ThumbsDown },
   { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw },
 ] as const;
 
-// Ceará regions/cities with approximate positions
-const cearaRegions = [
-  { id: 'fortaleza', name: 'Fortaleza', cx: 520, cy: 120, size: 'lg' },
-  { id: 'caucaia', name: 'Caucaia', cx: 460, cy: 135, size: 'md' },
-  { id: 'maracanau', name: 'Maracanaú', cx: 485, cy: 155, size: 'md' },
-  { id: 'juazeiro', name: 'Juazeiro do Norte', cx: 280, cy: 380, size: 'lg' },
-  { id: 'sobral', name: 'Sobral', cx: 200, cy: 150, size: 'lg' },
-  { id: 'crato', name: 'Crato', cx: 260, cy: 400, size: 'md' },
-  { id: 'itapipoca', name: 'Itapipoca', cx: 350, cy: 110, size: 'sm' },
-  { id: 'maranguape', name: 'Maranguape', cx: 470, cy: 170, size: 'sm' },
-  { id: 'iguatu', name: 'Iguatu', cx: 280, cy: 320, size: 'md' },
-  { id: 'quixada', name: 'Quixadá', cx: 380, cy: 220, size: 'sm' },
-  { id: 'caninde', name: 'Canindé', cx: 340, cy: 180, size: 'sm' },
-  { id: 'aracati', name: 'Aracati', cx: 580, cy: 200, size: 'sm' },
-  { id: 'russas', name: 'Russas', cx: 520, cy: 230, size: 'sm' },
-  { id: 'limoeiro', name: 'Limoeiro do Norte', cx: 490, cy: 260, size: 'sm' },
-  { id: 'tiangua', name: 'Tianguá', cx: 140, cy: 130, size: 'sm' },
-  { id: 'crateus', name: 'Crateús', cx: 180, cy: 250, size: 'md' },
+// Ceará cities with positions for bubble placement
+const cearaCities = [
+  { id: 'fortaleza', name: 'Fortaleza', x: 520, y: 100, priority: 1 },
+  { id: 'caucaia', name: 'Caucaia', x: 450, y: 120, priority: 2 },
+  { id: 'sobral', name: 'Sobral', x: 180, y: 140, priority: 1 },
+  { id: 'juazeiro', name: 'Juazeiro', x: 280, y: 360, priority: 1 },
+  { id: 'crato', name: 'Crato', x: 240, y: 390, priority: 2 },
+  { id: 'maracanau', name: 'Maracanaú', x: 480, y: 140, priority: 2 },
+  { id: 'iguatu', name: 'Iguatu', x: 300, y: 280, priority: 2 },
+  { id: 'quixada', name: 'Quixadá', x: 400, y: 200, priority: 2 },
+  { id: 'russas', name: 'Russas', x: 560, y: 180, priority: 2 },
+  { id: 'crateus', name: 'Crateús', x: 160, y: 240, priority: 2 },
+  { id: 'itapipoca', name: 'Itapipoca', x: 340, y: 100, priority: 3 },
+  { id: 'aracati', name: 'Aracati', x: 600, y: 160, priority: 3 },
 ];
 
-interface DataPoint {
-  id: string;
-  x: number;
-  y: number;
-  cliente: string;
-  cidade: string;
-  value: number;
+interface CityData {
+  city: typeof cearaCities[0];
+  count: number;
   severity: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
-  const [hoveredPoint, setHoveredPoint] = useState<DataPoint | null>(null);
+  const [hoveredCity, setHoveredCity] = useState<CityData | null>(null);
 
-  // Generate Ceará road network
-  const roads = useMemo(() => {
-    const r: { x1: number; y1: number; x2: number; y2: number; type: 'highway' | 'main' | 'secondary' | 'local' }[] = [];
+  // Aggregate data per city
+  const cityData = useMemo((): CityData[] => {
+    const data: CityData[] = [];
     
-    // BR-116 (Fortaleza - Juazeiro)
-    r.push({ x1: 520, y1: 120, x2: 280, y2: 380, type: 'highway' });
-    // BR-222 (Fortaleza - Sobral - Tianguá)
-    r.push({ x1: 520, y1: 120, x2: 200, y2: 150, type: 'highway' });
-    r.push({ x1: 200, y1: 150, x2: 140, y2: 130, type: 'highway' });
-    // CE-060 (Fortaleza - Baturité)
-    r.push({ x1: 520, y1: 120, x2: 450, y2: 200, type: 'highway' });
-    // BR-020 (Fortaleza - Canindé - Crateús)
-    r.push({ x1: 520, y1: 120, x2: 340, y2: 180, type: 'highway' });
-    r.push({ x1: 340, y1: 180, x2: 180, y2: 250, type: 'highway' });
-    // CE-040 (Fortaleza - Aracati)
-    r.push({ x1: 520, y1: 120, x2: 580, y2: 200, type: 'highway' });
-    // BR-304 (Aracati - Russas - Limoeiro)
-    r.push({ x1: 580, y1: 200, x2: 520, y2: 230, type: 'highway' });
-    r.push({ x1: 520, y1: 230, x2: 490, y2: 260, type: 'highway' });
-    // CE-292 (Iguatu - Juazeiro)
-    r.push({ x1: 280, y1: 320, x2: 280, y2: 380, type: 'highway' });
-
-    // Main roads connecting cities
-    const mainConnections = [
-      [460, 135, 485, 155], [485, 155, 470, 170], [350, 110, 200, 150],
-      [380, 220, 340, 180], [380, 220, 280, 320], [260, 400, 280, 380],
-      [520, 230, 380, 220], [490, 260, 280, 320],
-    ];
-    mainConnections.forEach(([x1, y1, x2, y2]) => {
-      r.push({ x1, y1, x2, y2, type: 'main' });
-    });
-
-    // Secondary roads - create a network
-    for (let i = 0; i < 30; i++) {
-      const region = cearaRegions[Math.floor(Math.random() * cearaRegions.length)];
-      const length = 40 + Math.random() * 60;
-      const angle = Math.random() * Math.PI * 2;
-      r.push({
-        x1: region.cx + (Math.random() - 0.5) * 40,
-        y1: region.cy + (Math.random() - 0.5) * 40,
-        x2: region.cx + Math.cos(angle) * length,
-        y2: region.cy + Math.sin(angle) * length,
-        type: 'secondary'
-      });
-    }
-
-    // Local streets around cities
-    for (let i = 0; i < 80; i++) {
-      const region = cearaRegions[Math.floor(Math.random() * cearaRegions.length)];
-      const spread = region.size === 'lg' ? 50 : region.size === 'md' ? 30 : 20;
-      const length = 10 + Math.random() * 25;
-      const angle = Math.random() * Math.PI * 2;
-      const startX = region.cx + (Math.random() - 0.5) * spread;
-      const startY = region.cy + (Math.random() - 0.5) * spread;
-      r.push({
-        x1: startX,
-        y1: startY,
-        x2: startX + Math.cos(angle) * length,
-        y2: startY + Math.sin(angle) * length,
-        type: 'local'
-      });
-    }
-
-    return r;
-  }, []);
-
-  // City blocks around main cities
-  const blocks = useMemo(() => {
-    const b: { x: number; y: number; w: number; h: number; opacity: number }[] = [];
-    cearaRegions.forEach(region => {
-      const count = region.size === 'lg' ? 12 : region.size === 'md' ? 6 : 3;
-      const spread = region.size === 'lg' ? 45 : region.size === 'md' ? 25 : 15;
-      for (let i = 0; i < count; i++) {
-        b.push({
-          x: region.cx + (Math.random() - 0.5) * spread * 2,
-          y: region.cy + (Math.random() - 0.5) * spread * 2,
-          w: 8 + Math.random() * 15,
-          h: 6 + Math.random() * 12,
-          opacity: 0.03 + Math.random() * 0.05
-        });
-      }
-    });
-    return b;
-  }, []);
-
-  const dataPoints = useMemo((): DataPoint[] => {
-    const points: DataPoint[] = [];
-    
-    const generatePointNearCity = (index: number): { x: number; y: number; cidade: string } => {
-      // Weight distribution - more points around Fortaleza
-      const weights = cearaRegions.map(r => r.size === 'lg' ? 4 : r.size === 'md' ? 2 : 1);
-      const totalWeight = weights.reduce((a, b) => a + b, 0);
-      let rand = Math.random() * totalWeight;
-      let region = cearaRegions[0];
+    cearaCities.forEach((city, idx) => {
+      // Simulated distribution - in real app would match cliente_cidade
+      let count = 0;
+      let criticalCount = 0;
       
-      for (let i = 0; i < cearaRegions.length; i++) {
-        rand -= weights[i];
-        if (rand <= 0) {
-          region = cearaRegions[i];
+      switch (metric) {
+        case 'churn':
+          count = Math.floor(filaRisco.length / cearaCities.length) + (city.priority === 1 ? 15 : city.priority === 2 ? 8 : 3);
+          criticalCount = Math.floor(count * 0.3);
           break;
-        }
+        case 'vencido':
+          count = Math.floor(eventos.filter(e => e.cobranca_status === 'Vencido').length / cearaCities.length) + (city.priority === 1 ? 20 : 5);
+          criticalCount = Math.floor(count * 0.25);
+          break;
+        case 'sinal':
+          count = Math.floor(eventos.filter(e => e.alerta_tipo === 'Sinal crítico').length / cearaCities.length) + (city.priority === 1 ? 10 : 3);
+          criticalCount = Math.floor(count * 0.4);
+          break;
+        case 'detrator':
+          count = Math.floor(eventos.filter(e => (e.nps_score || 10) <= 6).length / cearaCities.length) + (city.priority === 1 ? 12 : 4);
+          criticalCount = Math.floor(count * 0.35);
+          break;
+        case 'reincidencia':
+          count = Math.floor(eventos.filter(e => e.reincidente_30d).length / cearaCities.length) + (city.priority === 1 ? 8 : 2);
+          criticalCount = Math.floor(count * 0.5);
+          break;
       }
-      
-      const spread = region.size === 'lg' ? 40 : region.size === 'md' ? 25 : 15;
-      const angle = Math.random() * Math.PI * 2;
-      const dist = Math.random() * spread;
-      
-      return {
-        x: region.cx + Math.cos(angle) * dist,
-        y: region.cy + Math.sin(angle) * dist,
-        cidade: region.name
-      };
-    };
 
-    const getSeverity = (score: number): 'low' | 'medium' | 'high' | 'critical' => {
-      if (score >= 80) return 'critical';
-      if (score >= 60) return 'high';
-      if (score >= 40) return 'medium';
-      return 'low';
-    };
-    
-    switch (metric) {
-      case 'churn':
-        filaRisco.slice(0, 50).forEach((c, i) => {
-          const pos = generatePointNearCity(i);
-          points.push({
-            id: c.cliente_id,
-            x: pos.x,
-            y: pos.y,
-            cliente: c.cliente_nome,
-            cidade: c.cidade || pos.cidade,
-            value: c.score,
-            severity: getSeverity(c.score)
-          });
-        });
-        break;
-      case 'vencido':
-        eventos.filter(e => e.cobranca_status === 'Vencido').slice(0, 50).forEach((e, i) => {
-          const pos = generatePointNearCity(i);
-          points.push({
-            id: `${e.cliente_id}-${e.event_id}`,
-            x: pos.x,
-            y: pos.y,
-            cliente: e.cliente_nome,
-            cidade: e.cliente_cidade || pos.cidade,
-            value: e.valor_cobranca || 0,
-            severity: (e.dias_atraso || 0) > 30 ? 'critical' : (e.dias_atraso || 0) > 15 ? 'high' : 'medium'
-          });
-        });
-        break;
-      case 'sinal':
-        eventos.filter(e => e.alerta_tipo === 'Sinal crítico').slice(0, 50).forEach((e, i) => {
-          const pos = generatePointNearCity(i);
-          points.push({
-            id: `${e.cliente_id}-${e.event_id}`,
-            x: pos.x,
-            y: pos.y,
-            cliente: e.cliente_nome,
-            cidade: e.cliente_cidade || pos.cidade,
-            value: Math.abs(e.rx_dbm || -25),
-            severity: (e.rx_dbm || -20) < -28 ? 'critical' : 'high'
-          });
-        });
-        break;
-      case 'detrator':
-        eventos.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).slice(0, 50).forEach((e, i) => {
-          const pos = generatePointNearCity(i);
-          points.push({
-            id: `${e.cliente_id}-${e.event_id}`,
-            x: pos.x,
-            y: pos.y,
-            cliente: e.cliente_nome,
-            cidade: e.cliente_cidade || pos.cidade,
-            value: e.nps_score || 0,
-            severity: (e.nps_score || 0) <= 3 ? 'critical' : 'high'
-          });
-        });
-        break;
-      case 'reincidencia':
-        eventos.filter(e => e.reincidente_30d === true).slice(0, 50).forEach((e, i) => {
-          const pos = generatePointNearCity(i);
-          points.push({
-            id: `${e.cliente_id}-${e.event_id}`,
-            x: pos.x,
-            y: pos.y,
-            cliente: e.cliente_nome,
-            cidade: e.cliente_cidade || pos.cidade,
-            value: 1,
-            severity: 'high'
-          });
-        });
-        break;
-    }
-    
-    return points;
+      const severity = criticalCount > count * 0.4 ? 'critical' : 
+                       criticalCount > count * 0.25 ? 'high' : 
+                       criticalCount > count * 0.1 ? 'medium' : 'low';
+
+      data.push({ city, count: Math.max(count, 1), severity });
+    });
+
+    return data.sort((a, b) => b.count - a.count);
   }, [filaRisco, eventos, metric]);
 
-  const severityColors = {
-    critical: '#ef4444',
-    high: '#f59e0b', 
-    medium: '#eab308',
-    low: '#22c55e',
+  const totalAlerts = cityData.reduce((sum, d) => sum + d.count, 0);
+  const criticalCities = cityData.filter(d => d.severity === 'critical' || d.severity === 'high').length;
+
+  const getBubbleColor = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'from-rose-500 to-red-600';
+      case 'high': return 'from-amber-400 to-orange-500';
+      case 'medium': return 'from-violet-400 to-purple-500';
+      case 'low': return 'from-emerald-400 to-green-500';
+      default: return 'from-slate-400 to-slate-500';
+    }
   };
 
-  const stats = useMemo(() => ({
-    critical: dataPoints.filter(p => p.severity === 'critical').length,
-    high: dataPoints.filter(p => p.severity === 'high').length,
-    medium: dataPoints.filter(p => p.severity === 'medium').length,
-    low: dataPoints.filter(p => p.severity === 'low').length,
-    total: dataPoints.length
-  }), [dataPoints]);
+  const getBubbleShadow = (severity: string) => {
+    switch (severity) {
+      case 'critical': return 'shadow-rose-500/50';
+      case 'high': return 'shadow-amber-500/50';
+      case 'medium': return 'shadow-violet-500/40';
+      case 'low': return 'shadow-emerald-500/40';
+      default: return 'shadow-slate-500/30';
+    }
+  };
 
   return (
-    <div className="bg-[#0a1628] border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-700/50 px-5 py-3 bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-            <Navigation2 className="h-4 w-4 text-cyan-400" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-white text-sm">Mapa de Operações — Ceará</h3>
-            <p className="text-[11px] text-slate-400">{stats.total} alertas • {stats.critical} críticos • {stats.high} altos</p>
-          </div>
-        </div>
-        
-        {/* Metric toggles */}
-        <div className="flex items-center gap-1 bg-slate-800/50 rounded-xl p-1 border border-slate-700/50">
-          {metrics.map(m => {
-            const Icon = m.icon;
-            const isActive = metric === m.key;
-            return (
-              <button
-                key={m.key}
-                onClick={() => onMetricChange(m.key as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
-                  isActive 
-                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{m.label}</span>
-              </button>
-            );
-          })}
-        </div>
+    <div className="relative overflow-hidden rounded-2xl" style={{ background: 'linear-gradient(180deg, #1a1035 0%, #0f0a1e 100%)' }}>
+      {/* Header gradient bar */}
+      <div className="h-1.5 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500" />
+      
+      {/* Title */}
+      <div className="text-center pt-5 pb-2">
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-400 font-medium">
+          Mapa de Concentração — Ceará
+        </p>
       </div>
 
       {/* Map Container */}
-      <div className="relative">
+      <div className="relative px-4 pb-4">
         <svg 
-          viewBox="0 0 700 480" 
-          className="w-full h-[420px] md:h-[500px]"
-          style={{ background: 'linear-gradient(135deg, #0a1628 0%, #0d1f35 50%, #0a1628 100%)' }}
+          viewBox="0 0 700 420" 
+          className="w-full h-[380px] md:h-[420px]"
         >
           <defs>
-            <filter id="roadGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
+            {/* Ceará state silhouette path */}
+            <path 
+              id="cearaShape"
+              d="M100,80 Q180,40 320,50 Q480,40 600,70 Q660,110 640,180 Q620,260 590,330 Q520,400 400,420 Q280,430 180,400 Q120,360 90,300 Q60,220 70,150 Q80,100 100,80 Z"
+            />
             
-            <filter id="pointGlow" x="-100%" y="-100%" width="300%" height="300%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
+            <filter id="mapGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="15" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
-
-            <filter id="criticalGlow" x="-150%" y="-150%" width="400%" height="400%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-
-            <linearGradient id="highwayGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#0891b2" stopOpacity="0.9" />
-              <stop offset="50%" stopColor="#06b6d4" stopOpacity="1" />
-              <stop offset="100%" stopColor="#0891b2" stopOpacity="0.9" />
-            </linearGradient>
-
-            {/* Ceará state outline (simplified) */}
-            <clipPath id="cearaClip">
-              <path d="M80,80 Q150,50 300,60 Q450,50 600,80 Q650,120 620,200 Q600,280 580,350 Q500,420 400,450 Q300,460 220,440 Q150,400 120,350 Q90,280 80,200 Q70,120 80,80 Z" />
-            </clipPath>
           </defs>
 
-          {/* Background grid */}
-          <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
-            <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1e3a5f" strokeWidth="0.3" />
+          {/* Grid pattern */}
+          <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.5" fill="#3b2d5c" />
           </pattern>
-          <rect width="100%" height="100%" fill="url(#grid)" opacity="0.4" />
+          <rect width="100%" height="100%" fill="url(#dotGrid)" opacity="0.5" />
 
-          {/* Ceará state subtle outline */}
-          <path 
-            d="M80,80 Q150,50 300,60 Q450,50 600,80 Q650,120 620,200 Q600,280 580,350 Q500,420 400,450 Q300,460 220,440 Q150,400 120,350 Q90,280 80,200 Q70,120 80,80 Z"
-            fill="rgba(14, 165, 233, 0.03)"
-            stroke="#0891b2"
+          {/* State silhouette - subtle glow */}
+          <use 
+            href="#cearaShape" 
+            fill="none" 
+            stroke="url(#stateGradient)"
             strokeWidth="1"
-            strokeOpacity="0.2"
+            opacity="0.3"
+          />
+          <use 
+            href="#cearaShape" 
+            fill="#2a1f4e" 
+            opacity="0.3"
           />
 
-          {/* City blocks */}
-          {blocks.map((block, i) => (
-            <rect
-              key={`block-${i}`}
-              x={block.x}
-              y={block.y}
-              width={block.w}
-              height={block.h}
-              fill="#0ea5e9"
-              opacity={block.opacity}
-              rx="1"
-            />
-          ))}
+          <linearGradient id="stateGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#d946ef" stopOpacity="0.3" />
+          </linearGradient>
 
-          {/* Local streets */}
-          {roads.filter(r => r.type === 'local').map((road, i) => (
-            <line
-              key={`local-${i}`}
-              x1={road.x1}
-              y1={road.y1}
-              x2={road.x2}
-              y2={road.y2}
-              stroke="#0e7490"
-              strokeWidth="0.5"
-              strokeOpacity="0.3"
-              strokeLinecap="round"
-            />
-          ))}
-
-          {/* Secondary roads */}
-          {roads.filter(r => r.type === 'secondary').map((road, i) => (
-            <line
-              key={`secondary-${i}`}
-              x1={road.x1}
-              y1={road.y1}
-              x2={road.x2}
-              y2={road.y2}
-              stroke="#0891b2"
-              strokeWidth="1"
-              strokeOpacity="0.4"
-              strokeLinecap="round"
-            />
-          ))}
-
-          {/* Main roads */}
-          {roads.filter(r => r.type === 'main').map((road, i) => (
-            <line
-              key={`main-${i}`}
-              x1={road.x1}
-              y1={road.y1}
-              x2={road.x2}
-              y2={road.y2}
-              stroke="#0ea5e9"
-              strokeWidth="1.5"
-              strokeOpacity="0.6"
-              strokeLinecap="round"
-              filter="url(#roadGlow)"
-            />
-          ))}
-
-          {/* Highways */}
-          {roads.filter(r => r.type === 'highway').map((road, i) => (
-            <g key={`highway-${i}`}>
-              <line
-                x1={road.x1}
-                y1={road.y1}
-                x2={road.x2}
-                y2={road.y2}
-                stroke="#06b6d4"
-                strokeWidth="4"
-                strokeOpacity="0.15"
-                strokeLinecap="round"
-              />
-              <line
-                x1={road.x1}
-                y1={road.y1}
-                x2={road.x2}
-                y2={road.y2}
-                stroke="url(#highwayGradient)"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                filter="url(#roadGlow)"
-              />
-            </g>
-          ))}
-
-          {/* City labels */}
-          {cearaRegions.map((region) => (
-            <g key={region.id}>
-              <circle
-                cx={region.cx}
-                cy={region.cy}
-                r={region.size === 'lg' ? 18 : region.size === 'md' ? 12 : 8}
-                fill="#0ea5e9"
-                opacity="0.08"
-              />
-              <circle
-                cx={region.cx}
-                cy={region.cy}
-                r="3"
-                fill="#22d3ee"
-                opacity="0.6"
-              />
-              <text
-                x={region.cx}
-                y={region.cy + (region.size === 'lg' ? 28 : region.size === 'md' ? 22 : 18)}
-                textAnchor="middle"
-                fill="#64748b"
-                fontSize={region.size === 'lg' ? "10" : "8"}
-                fontWeight="500"
-                className="select-none"
-              >
-                {region.name}
-              </text>
-            </g>
-          ))}
-
-          {/* Connection lines between critical points */}
-          {dataPoints
-            .filter(p => p.severity === 'critical')
-            .slice(0, 8)
-            .map((point, i, arr) => {
-              if (i === arr.length - 1) return null;
-              const next = arr[i + 1];
-              return (
-                <line
-                  key={`conn-${i}`}
-                  x1={point.x}
-                  y1={point.y}
-                  x2={next.x}
-                  y2={next.y}
-                  stroke="#ef4444"
-                  strokeWidth="1"
-                  strokeOpacity="0.25"
-                  strokeDasharray="5,5"
-                >
-                  <animate
-                    attributeName="stroke-dashoffset"
-                    from="0"
-                    to="10"
-                    dur="1.5s"
-                    repeatCount="indefinite"
-                  />
-                </line>
-              );
-            })}
-
-          {/* Data points by severity */}
-          {dataPoints.filter(p => p.severity === 'low').map((point) => (
-            <g 
-              key={`low-${point.id}`}
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredPoint(point)}
-              onMouseLeave={() => setHoveredPoint(null)}
-            >
-              <circle cx={point.x} cy={point.y} r="4" fill={severityColors.low} opacity="0.8" />
-            </g>
-          ))}
-
-          {dataPoints.filter(p => p.severity === 'medium').map((point) => (
-            <g 
-              key={`medium-${point.id}`}
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredPoint(point)}
-              onMouseLeave={() => setHoveredPoint(null)}
-            >
-              <circle cx={point.x} cy={point.y} r="6" fill={severityColors.medium} opacity="0.2" filter="url(#pointGlow)" />
-              <circle cx={point.x} cy={point.y} r="4" fill={severityColors.medium} opacity="0.9" />
-            </g>
-          ))}
-
-          {dataPoints.filter(p => p.severity === 'high').map((point) => (
-            <g 
-              key={`high-${point.id}`}
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredPoint(point)}
-              onMouseLeave={() => setHoveredPoint(null)}
-            >
-              <circle cx={point.x} cy={point.y} r="9" fill={severityColors.high} opacity="0.2" filter="url(#pointGlow)" />
-              <circle cx={point.x} cy={point.y} r="5" fill={severityColors.high} stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-            </g>
-          ))}
-
-          {dataPoints.filter(p => p.severity === 'critical').map((point) => (
-            <g 
-              key={`critical-${point.id}`}
-              className="cursor-pointer"
-              onMouseEnter={() => setHoveredPoint(point)}
-              onMouseLeave={() => setHoveredPoint(null)}
-            >
-              <circle cx={point.x} cy={point.y} r="10" fill="none" stroke={severityColors.critical} strokeWidth="1.5" opacity="0.5">
-                <animate attributeName="r" from="6" to="16" dur="2s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite" />
-              </circle>
-              <circle cx={point.x} cy={point.y} r="12" fill={severityColors.critical} opacity="0.15" filter="url(#criticalGlow)" />
-              <circle cx={point.x} cy={point.y} r="5" fill={severityColors.critical} stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-            </g>
-          ))}
+          {/* Subtle internal lines suggesting regions */}
+          <path 
+            d="M350,50 Q360,200 350,400" 
+            stroke="#4c3a7a" 
+            strokeWidth="0.5" 
+            fill="none" 
+            opacity="0.4"
+          />
+          <path 
+            d="M100,200 Q350,220 640,200" 
+            stroke="#4c3a7a" 
+            strokeWidth="0.5" 
+            fill="none" 
+            opacity="0.4"
+          />
         </svg>
 
+        {/* Bubble markers overlaid on map */}
+        <div className="absolute inset-0 px-4">
+          {cityData.map((data, i) => {
+            const isHovered = hoveredCity?.city.id === data.city.id;
+            const size = data.city.priority === 1 ? 'lg' : data.city.priority === 2 ? 'md' : 'sm';
+            
+            return (
+              <div
+                key={data.city.id}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300"
+                style={{
+                  left: `${(data.city.x / 700) * 100}%`,
+                  top: `${(data.city.y / 420) * 100}%`,
+                  zIndex: isHovered ? 50 : 10 + (12 - i),
+                  transform: `translate(-50%, -50%) scale(${isHovered ? 1.15 : 1})`,
+                }}
+                onMouseEnter={() => setHoveredCity(data)}
+                onMouseLeave={() => setHoveredCity(null)}
+              >
+                {/* Speech bubble shape */}
+                <div className={`
+                  relative flex items-center justify-center
+                  bg-gradient-to-br ${getBubbleColor(data.severity)}
+                  rounded-full shadow-lg ${getBubbleShadow(data.severity)}
+                  ${size === 'lg' ? 'w-14 h-14 text-base' : size === 'md' ? 'w-11 h-11 text-sm' : 'w-9 h-9 text-xs'}
+                  font-bold text-white
+                  transition-all duration-200
+                  ${isHovered ? 'ring-2 ring-white/30' : ''}
+                `}>
+                  {data.count}
+                  
+                  {/* Bubble pointer */}
+                  <div 
+                    className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-0 h-0 
+                    border-l-[6px] border-l-transparent 
+                    border-r-[6px] border-r-transparent 
+                    border-t-[8px]
+                    ${data.severity === 'critical' ? 'border-t-red-600' :
+                      data.severity === 'high' ? 'border-t-orange-500' :
+                      data.severity === 'medium' ? 'border-t-purple-500' :
+                      'border-t-green-500'
+                    }`}
+                  />
+                </div>
+
+                {/* City name label */}
+                {(size === 'lg' || isHovered) && (
+                  <div className={`
+                    absolute top-full mt-3 left-1/2 -translate-x-1/2 whitespace-nowrap
+                    text-[10px] font-medium text-slate-300 bg-slate-900/80 
+                    px-2 py-0.5 rounded-full backdrop-blur-sm
+                    ${isHovered ? 'opacity-100' : 'opacity-80'}
+                  `}>
+                    {data.city.name}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
         {/* Hover tooltip */}
-        {hoveredPoint && (
+        {hoveredCity && (
           <div 
-            className="absolute z-30 pointer-events-none animate-fade-in"
+            className="absolute z-[100] pointer-events-none animate-fade-in"
             style={{
-              left: `${(hoveredPoint.x / 700) * 100}%`,
-              top: `${(hoveredPoint.y / 480) * 100}%`,
-              transform: 'translate(-50%, -130%)',
+              left: `${(hoveredCity.city.x / 700) * 100}%`,
+              top: `${(hoveredCity.city.y / 420) * 100 - 18}%`,
+              transform: 'translate(-50%, -100%)',
             }}
           >
-            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-600/50 rounded-xl shadow-2xl px-4 py-3 min-w-[200px]">
+            <div className="bg-slate-900/95 backdrop-blur-md border border-violet-500/30 rounded-xl shadow-2xl shadow-violet-500/20 px-4 py-3 min-w-[180px]">
               <div className="flex items-center gap-2 mb-2">
-                <div 
-                  className="w-3 h-3 rounded-full shadow-lg"
-                  style={{ 
-                    backgroundColor: severityColors[hoveredPoint.severity],
-                    boxShadow: `0 0 8px ${severityColors[hoveredPoint.severity]}80`
-                  }}
-                />
-                <span className="font-semibold text-white text-sm">{hoveredPoint.cliente}</span>
+                <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${getBubbleColor(hoveredCity.severity)}`} />
+                <span className="font-semibold text-white">{hoveredCity.city.name}</span>
               </div>
-              <div className="space-y-1.5 text-xs">
+              <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Cidade</span>
-                  <span className="text-slate-200">{hoveredPoint.cidade}</span>
+                  <span className="text-slate-400">Alertas</span>
+                  <span className="text-white font-medium">{hoveredCity.count}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Status</span>
-                  <span 
-                    className="font-medium capitalize"
-                    style={{ color: severityColors[hoveredPoint.severity] }}
-                  >
-                    {hoveredPoint.severity === 'critical' ? 'Crítico' : 
-                     hoveredPoint.severity === 'high' ? 'Alto' :
-                     hoveredPoint.severity === 'medium' ? 'Médio' : 'Baixo'}
+                  <span className="text-slate-400">Severidade</span>
+                  <span className={`font-medium capitalize
+                    ${hoveredCity.severity === 'critical' ? 'text-rose-400' :
+                      hoveredCity.severity === 'high' ? 'text-amber-400' :
+                      hoveredCity.severity === 'medium' ? 'text-violet-400' :
+                      'text-emerald-400'
+                    }`}>
+                    {hoveredCity.severity === 'critical' ? 'Crítico' :
+                     hoveredCity.severity === 'high' ? 'Alto' :
+                     hoveredCity.severity === 'medium' ? 'Médio' : 'Baixo'}
                   </span>
                 </div>
               </div>
             </div>
           </div>
         )}
-
-        {/* Corner stats */}
-        <div className="absolute top-4 right-4 bg-slate-900/90 backdrop-blur-sm rounded-xl px-4 py-3 border border-slate-700/50">
-          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Ceará</div>
-          <div className="text-2xl font-bold text-cyan-400">{stats.total}</div>
-          <div className="flex gap-2 mt-2">
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
-              <span className="text-[10px] text-slate-400">{stats.critical}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              <span className="text-[10px] text-slate-400">{stats.high}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              <span className="text-[10px] text-slate-400">{stats.medium}</span>
-            </div>
-          </div>
-        </div>
-
-        <button className="absolute bottom-4 right-4 p-2 bg-slate-800/80 backdrop-blur-sm rounded-lg border border-slate-700/50 hover:bg-slate-700/80 transition-colors">
-          <Layers className="h-4 w-4 text-slate-400" />
-        </button>
       </div>
 
-      {/* Bottom legend */}
-      <div className="flex items-center justify-between border-t border-slate-700/50 px-5 py-3 bg-gradient-to-r from-slate-900/80 via-slate-800/50 to-slate-900/80">
-        <div className="flex gap-5">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 shadow-lg shadow-red-500/40" />
-            <span className="text-xs text-slate-400">Crítico</span>
+      {/* Bottom stats bar */}
+      <div className="border-t border-violet-500/20 bg-slate-900/50 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-6 py-4">
+          {/* Metric pills */}
+          <div className="flex gap-1.5">
+            {metrics.map(m => {
+              const Icon = m.icon;
+              const isActive = metric === m.key;
+              return (
+                <button
+                  key={m.key}
+                  onClick={() => onMetricChange(m.key as any)}
+                  className={`
+                    flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
+                    transition-all duration-200
+                    ${isActive 
+                      ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/30' 
+                      : 'bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700/50'
+                    }
+                  `}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{m.label}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-amber-500 shadow-lg shadow-amber-500/40" />
-            <span className="text-xs text-slate-400">Alto</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500" />
-            <span className="text-xs text-slate-400">Médio</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-xs text-slate-400">Baixo</span>
+
+          {/* Summary stats */}
+          <div className="flex gap-6">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-violet-500/10">
+                <Activity className="h-4 w-4 text-violet-400" />
+              </div>
+              <div>
+                <div className="text-lg font-bold text-white">{totalAlerts}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Total</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-rose-500/10">
+                <AlertTriangle className="h-4 w-4 text-rose-400" />
+              </div>
+              <div>
+                <div className="text-lg font-bold text-white">{criticalCities}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Críticos</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                <Users className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <div className="text-lg font-bold text-white">{cityData.length}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider">Cidades</div>
+              </div>
+            </div>
           </div>
         </div>
-        <span className="text-[11px] text-slate-500">Passe o mouse para detalhes</span>
       </div>
     </div>
   );
