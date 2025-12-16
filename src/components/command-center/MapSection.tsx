@@ -4,6 +4,42 @@ import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, TrendingDown } 
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Custom CSS for labeled markers
+const markerStyles = `
+  .city-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+  }
+  .city-bubble {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 13px;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+  }
+  .city-bubble:hover {
+    transform: scale(1.15);
+  }
+  .city-label {
+    margin-top: 4px;
+    font-size: 10px;
+    color: white;
+    background: rgba(15, 23, 42, 0.85);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+`;
+
 interface MapSectionProps {
   filaRisco: ClienteRisco[];
   filaCobranca: ClienteCobranca[];
@@ -97,11 +133,6 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     }
   };
 
-  const getMarkerRadius = (priority: number, count: number) => {
-    const base = priority === 1 ? 18 : priority === 2 ? 14 : 10;
-    return base + Math.min(count / 15, 6);
-  };
-
   // Initialize map
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -136,15 +167,22 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     // Add new markers
     cityData.forEach((data) => {
       const color = getMarkerColor(data.severity);
-      const radius = getMarkerRadius(data.city.priority, data.count);
+      const size = data.city.priority === 1 ? 42 : data.city.priority === 2 ? 34 : 26;
 
-      const marker = L.circleMarker([data.city.lat, data.city.lng], {
-        radius,
-        color: color,
-        fillColor: color,
-        fillOpacity: 0.8,
-        weight: 2,
-      }).addTo(mapInstanceRef.current!);
+      const icon = L.divIcon({
+        className: 'city-marker',
+        html: `
+          <div class="city-bubble" style="width: ${size}px; height: ${size}px; background: ${color};">
+            ${data.count}
+          </div>
+          <div class="city-label">${data.city.name}</div>
+        `,
+        iconSize: [size, size + 20],
+        iconAnchor: [size / 2, size / 2],
+      });
+
+      const marker = L.marker([data.city.lat, data.city.lng], { icon })
+        .addTo(mapInstanceRef.current!);
 
       marker.bindPopup(`
         <div style="text-align: center; padding: 4px;">
@@ -160,7 +198,7 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
         className: 'dark-popup',
       });
 
-      markersRef.current.push(marker);
+      markersRef.current.push(marker as any);
     });
   }, [cityData]);
 
@@ -196,40 +234,9 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
       <div className="h-[420px] md:h-[480px] relative">
         <div ref={mapRef} className="h-full w-full" style={{ background: '#1a2332' }} />
 
-        {/* Overlay labels for main cities */}
-        <div className="absolute inset-0 pointer-events-none z-[1000]">
-          {cityData.filter(d => d.city.priority === 1).map((data) => {
-            const color = getMarkerColor(data.severity);
-            const positions: Record<string, { left: string; top: string }> = {
-              fortaleza: { left: '72%', top: '18%' },
-              sobral: { left: '22%', top: '22%' },
-              juazeiro: { left: '48%', top: '78%' },
-            };
-            const pos = positions[data.city.id];
-            if (!pos) return null;
-            
-            return (
-              <div
-                key={data.city.id}
-                className="absolute flex flex-col items-center"
-                style={{ left: pos.left, top: pos.top, transform: 'translate(-50%, -50%)' }}
-              >
-                <div 
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-lg"
-                  style={{ backgroundColor: color }}
-                >
-                  {data.count}
-                </div>
-                <div className="mt-1 text-[10px] text-white bg-slate-900/80 px-2 py-0.5 rounded">
-                  {data.city.name}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         {/* CSS overrides */}
         <style>{`
+          ${markerStyles}
           .leaflet-container {
             font-family: inherit;
             background: #1a2332;
