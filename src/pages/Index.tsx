@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useDataLoader } from "@/hooks/useDataLoader";
+import { FilterState } from "@/types/evento";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlobalFilters } from "@/components/filters/GlobalFilters";
 import { KPICards } from "@/components/command-center/KPICards";
@@ -35,9 +36,21 @@ const Index = () => {
       <main className="flex-1 overflow-auto">
         {/* Global Filter Bar */}
         <GlobalFilters 
-          filters={data.filters} 
-          setFilters={data.setFilters} 
-          options={data.filterOptions} 
+          periodo={data.filters.periodo}
+          setPeriodo={(v) => data.setFilters(prev => ({ ...prev, periodo: v as FilterState['periodo'] }))}
+          uf={data.filters.cidade || 'todos'}
+          setUf={(v) => data.setFilters(prev => ({ ...prev, cidade: v === 'todos' ? null : v }))}
+          plano={data.filters.plano || 'todos'}
+          setPlano={(v) => data.setFilters(prev => ({ ...prev, plano: v === 'todos' ? null : v }))}
+          statusServico={data.filters.status || 'todos'}
+          setStatusServico={(v) => data.setFilters(prev => ({ ...prev, status: v === 'todos' ? null : v }))}
+          bucketRisco={'todos'}
+          setBucketRisco={() => {}}
+          segmento={data.filters.segmento || 'todos'}
+          setSegmento={(v) => data.setFilters(prev => ({ ...prev, segmento: v === 'todos' ? null : v }))}
+          ufs={data.filterOptions.cidades}
+          planos={data.filterOptions.planos}
+          segmentos={data.filterOptions.segmentos}
         />
 
         <div className="p-6 lg:p-8 space-y-6">

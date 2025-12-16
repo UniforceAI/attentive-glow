@@ -57,12 +57,10 @@ export function GlobalFilters({
               <SelectValue placeholder="Período" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">7 dias</SelectItem>
-              <SelectItem value="15">15 dias</SelectItem>
-              <SelectItem value="30">30 dias</SelectItem>
-              <SelectItem value="60">60 dias</SelectItem>
-              <SelectItem value="90">90 dias</SelectItem>
-              <SelectItem value="365">1 ano</SelectItem>
+              <SelectItem value="7d">7 dias</SelectItem>
+              <SelectItem value="30d">30 dias</SelectItem>
+              <SelectItem value="90d">90 dias</SelectItem>
+              <SelectItem value="12m">1 ano</SelectItem>
             </SelectContent>
           </Select>
 

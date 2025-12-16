@@ -13,16 +13,17 @@ export function AnnualChurnChart({ eventos }: AnnualChurnChartProps) {
   const chartData = useMemo(() => {
     const monthlyChurn = new Map<string, { churned: number; total: number; mrr: number }>();
     
-    const serviceStatus = new Map<number, { month: string; status: string; mrr: number }[]>();
+    const serviceStatus = new Map<string, { month: string; status: string; mrr: number }[]>();
     
     eventos.forEach(e => {
       if (!e.servico_id || !e.event_datetime) return;
       const monthKey = format(startOfMonth(parseISO(e.event_datetime)), "yyyy-MM");
+      const serviceId = String(e.servico_id);
       
-      if (!serviceStatus.has(e.servico_id)) {
-        serviceStatus.set(e.servico_id, []);
+      if (!serviceStatus.has(serviceId)) {
+        serviceStatus.set(serviceId, []);
       }
-      serviceStatus.get(e.servico_id)!.push({
+      serviceStatus.get(serviceId)!.push({
         month: monthKey,
         status: e.servico_status || '',
         mrr: e.valor_mensalidade || 0,
@@ -58,7 +59,7 @@ export function AnnualChurnChart({ eventos }: AnnualChurnChartProps) {
     });
 
     // Get unique services per month
-    const activePerMonth = new Map<string, Set<number>>();
+    const activePerMonth = new Map<string, Set<string>>();
     eventos.forEach(e => {
       if (!e.servico_id || !e.event_datetime) return;
       const monthKey = format(startOfMonth(parseISO(e.event_datetime)), "yyyy-MM");
@@ -66,7 +67,7 @@ export function AnnualChurnChart({ eventos }: AnnualChurnChartProps) {
         activePerMonth.set(monthKey, new Set());
       }
       if (e.servico_status !== 'Cancelado') {
-        activePerMonth.get(monthKey)!.add(e.servico_id);
+        activePerMonth.get(monthKey)!.add(String(e.servico_id));
       }
     });
 

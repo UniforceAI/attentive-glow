@@ -14,21 +14,22 @@ export function MRRChurnChart({ eventos }: MRRChurnChartProps) {
     const monthlyData = new Map<string, { mrr: number; mrrRisco: number; ltv: number; ltvRisco: number }>();
     
     // Get unique services with latest event per month
-    const servicesByMonth = new Map<string, Map<number, Evento>>();
+    const servicesByMonth = new Map<string, Map<string, Evento>>();
     
     eventos.forEach(e => {
       if (!e.servico_id || !e.event_datetime) return;
       const monthKey = format(startOfMonth(parseISO(e.event_datetime)), "yyyy-MM");
+      const serviceId = String(e.servico_id);
       
       if (!servicesByMonth.has(monthKey)) {
         servicesByMonth.set(monthKey, new Map());
       }
       
       const monthServices = servicesByMonth.get(monthKey)!;
-      const existing = monthServices.get(e.servico_id);
+      const existing = monthServices.get(serviceId);
       
       if (!existing || new Date(e.event_datetime) > new Date(existing.event_datetime)) {
-        monthServices.set(e.servico_id, e);
+        monthServices.set(serviceId, e);
       }
     });
 
