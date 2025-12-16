@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Evento, ClienteRisco, ClienteCobranca } from "@/types/evento";
 import { AlertTriangle, DollarSign, Wifi, ThumbsDown, RotateCcw, TrendingDown } from "lucide-react";
-import { MapContainer, TileLayer, CircleMarker, Popup } from "react-leaflet";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 interface MapSectionProps {
@@ -20,7 +20,6 @@ const metrics = [
   { key: 'reincidencia', label: 'Reincid.', icon: RotateCcw },
 ] as const;
 
-// Real coordinates for Ceará cities
 const cearaCities = [
   { id: 'fortaleza', name: 'Fortaleza', lat: -3.7172, lng: -38.5433, priority: 1 },
   { id: 'caucaia', name: 'Caucaia', lat: -3.7361, lng: -38.6531, priority: 2 },
@@ -45,7 +44,9 @@ interface CityData {
 }
 
 export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricChange }: MapSectionProps) {
-  const [hoveredCity, setHoveredCity] = useState<string | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.CircleMarker[]>([]);
 
   const cityData = useMemo((): CityData[] => {
     return cearaCities.map((city) => {
@@ -101,8 +102,67 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     return base + Math.min(count / 15, 6);
   };
 
-  // Center of Ceará
-  const cearaCenter: [number, number] = [-5.2, -39.3];
+  // Initialize map
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapRef.current, {
+      center: [-5.2, -39.3],
+      zoom: 7,
+      zoomControl: false,
+      attributionControl: false,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Update markers when data changes
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    // Add new markers
+    cityData.forEach((data) => {
+      const color = getMarkerColor(data.severity);
+      const radius = getMarkerRadius(data.city.priority, data.count);
+
+      const marker = L.circleMarker([data.city.lat, data.city.lng], {
+        radius,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.8,
+        weight: 2,
+      }).addTo(mapInstanceRef.current!);
+
+      marker.bindPopup(`
+        <div style="text-align: center; padding: 4px;">
+          <div style="font-weight: bold; font-size: 16px; color: ${color};">${data.count}</div>
+          <div style="font-size: 12px; color: #94a3b8;">${data.city.name}</div>
+          <div style="font-size: 11px; margin-top: 4px; color: ${color};">
+            ${data.severity === 'critical' ? 'Crítico' :
+              data.severity === 'high' ? 'Alto' :
+              data.severity === 'medium' ? 'Médio' : 'Baixo'}
+          </div>
+        </div>
+      `, {
+        className: 'dark-popup',
+      });
+
+      markersRef.current.push(marker);
+    });
+  }, [cityData]);
 
   return (
     <div className="rounded-2xl overflow-hidden border border-slate-700/50 bg-slate-900">
@@ -134,62 +194,12 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
 
       {/* Map */}
       <div className="h-[420px] md:h-[480px] relative">
-        <MapContainer
-          center={cearaCenter}
-          zoom={7}
-          className="h-full w-full"
-          zoomControl={false}
-          attributionControl={false}
-          style={{ background: '#1a2332' }}
-        >
-          {/* Dark theme tiles - CartoDB Dark */}
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
-
-          {/* City markers */}
-          {cityData.map((data) => {
-            const color = getMarkerColor(data.severity);
-            const radius = getMarkerRadius(data.city.priority, data.count);
-            
-            return (
-              <CircleMarker
-                key={data.city.id}
-                center={[data.city.lat, data.city.lng]}
-                radius={radius}
-                pathOptions={{
-                  color: color,
-                  fillColor: color,
-                  fillOpacity: 0.8,
-                  weight: 2,
-                  opacity: 1,
-                }}
-                eventHandlers={{
-                  mouseover: () => setHoveredCity(data.city.id),
-                  mouseout: () => setHoveredCity(null),
-                }}
-              >
-                <Popup>
-                  <div className="text-center p-1">
-                    <div className="font-bold text-base" style={{ color }}>{data.count}</div>
-                    <div className="text-xs text-gray-600">{data.city.name}</div>
-                    <div className="text-xs mt-1" style={{ color }}>
-                      {data.severity === 'critical' ? 'Crítico' :
-                       data.severity === 'high' ? 'Alto' :
-                       data.severity === 'medium' ? 'Médio' : 'Baixo'}
-                    </div>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            );
-          })}
-        </MapContainer>
+        <div ref={mapRef} className="h-full w-full" style={{ background: '#1a2332' }} />
 
         {/* Overlay labels for main cities */}
         <div className="absolute inset-0 pointer-events-none z-[1000]">
           {cityData.filter(d => d.city.priority === 1).map((data) => {
             const color = getMarkerColor(data.severity);
-            // Approximate screen positions for main cities
             const positions: Record<string, { left: string; top: string }> = {
               fortaleza: { left: '72%', top: '18%' },
               sobral: { left: '22%', top: '22%' },
@@ -218,26 +228,23 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
           })}
         </div>
 
-        {/* Leaflet CSS overrides */}
+        {/* CSS overrides */}
         <style>{`
           .leaflet-container {
             font-family: inherit;
             background: #1a2332;
           }
-          .leaflet-popup-content-wrapper {
+          .dark-popup .leaflet-popup-content-wrapper {
             background: rgba(15, 23, 42, 0.95);
             border: 1px solid rgba(100, 116, 139, 0.3);
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-          }
-          .leaflet-popup-content {
-            margin: 8px 12px;
             color: white;
           }
-          .leaflet-popup-tip {
+          .dark-popup .leaflet-popup-tip {
             background: rgba(15, 23, 42, 0.95);
           }
-          .leaflet-popup-close-button {
+          .dark-popup .leaflet-popup-close-button {
             color: #94a3b8 !important;
           }
         `}</style>
