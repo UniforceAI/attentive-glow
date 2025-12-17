@@ -37,18 +37,18 @@ function KPICard({ title, value, delta, icon, variant = 'default', tooltip }: {
   };
 
   const card = (
-    <div className={`rounded-xl border p-4 ${variantClasses[variant]} cursor-help`}>
-      <div className="flex items-center justify-between mb-2">
+    <div className={`rounded-xl border p-3 ${variantClasses[variant]} cursor-help min-w-0`}>
+      <div className="flex items-center justify-between mb-1">
         <span className={`${iconColors[variant]}`}>{icon}</span>
         {delta !== undefined && delta !== 0 && (
-          <span className={`flex items-center text-xs font-medium ${delta > 0 ? 'text-success' : 'text-destructive'}`}>
-            {delta > 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+          <span className={`flex items-center text-[10px] font-medium ${delta > 0 ? 'text-success' : 'text-destructive'}`}>
+            {delta > 0 ? <TrendingUp className="h-3 w-3 mr-0.5" /> : <TrendingDown className="h-3 w-3 mr-0.5" />}
             {Math.abs(delta).toFixed(1)}%
           </span>
         )}
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
-      <p className="text-xs text-muted-foreground mt-1">{title}</p>
+      <p className="text-lg font-bold text-foreground truncate">{value}</p>
+      <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{title}</p>
     </div>
   );
 
@@ -72,7 +72,7 @@ export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsP
   if (!kpis) return null;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2">
       <KPICard 
         title="Clientes Ativos" 
         value={kpis.clientesAtivos.value.toLocaleString('pt-BR')} 
