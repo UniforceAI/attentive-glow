@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { GlobalFilters } from "@/components/filters/GlobalFilters";
 import { KPICards } from "@/components/command-center/KPICards";
 import { MegaDash } from "@/components/command-center/MegaDash";
-import { DriverChips } from "@/components/command-center/DriverChips";
+
 import { MapSection } from "@/components/command-center/MapSection";
 import { FilaRisco } from "@/components/command-center/FilaRisco";
 import { FilaCobranca } from "@/components/command-center/FilaCobranca";
@@ -55,16 +55,9 @@ const Index = () => {
 
         <div className="p-6 lg:p-8 space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold gradient-text">Command Center</h1>
-              <p className="text-muted-foreground">Visão executiva em tempo real</p>
-            </div>
-            <DriverChips 
-              stats={data.driverStats} 
-              activeDriver={data.filters.driver}
-              onDriverClick={(driver) => data.setFilters(prev => ({ ...prev, driver }))}
-            />
+          <div>
+            <h1 className="text-3xl font-bold gradient-text">Command Center</h1>
+            <p className="text-muted-foreground">Visão executiva em tempo real</p>
           </div>
 
           {/* KPIs Row */}
