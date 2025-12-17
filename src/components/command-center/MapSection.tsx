@@ -57,8 +57,8 @@ const metrics = [
 ] as const;
 
 // Dynamically extract cities from data instead of hardcoded list
-const extractCitiesFromData = (eventos: Evento[]): typeof baseCities => {
-  const cityMap = new Map<string, { count: number; lat: number; lng: number }>();
+const extractCitiesFromData = (eventos: Evento[]): { id: string; name: string; lat: number; lng: number; priority: number }[] => {
+  const cityMap = new Map<string, { count: number; lats: number[]; lngs: number[] }>();
   
   eventos.forEach(e => {
     const cidade = e.cliente_cidade;
@@ -67,29 +67,31 @@ const extractCitiesFromData = (eventos: Evento[]): typeof baseCities => {
     const existing = cityMap.get(cidade);
     if (existing) {
       existing.count++;
+      if (e.geo_lat && e.geo_lng) {
+        existing.lats.push(e.geo_lat);
+        existing.lngs.push(e.geo_lng);
+      }
     } else {
-      // Use geo_lat/geo_lng if available, otherwise use default position
       cityMap.set(cidade, {
         count: 1,
-        lat: e.geo_lat || -5.2 + (Math.random() - 0.5) * 3,
-        lng: e.geo_lng || -39.3 + (Math.random() - 0.5) * 3,
+        lats: e.geo_lat ? [e.geo_lat] : [],
+        lngs: e.geo_lng ? [e.geo_lng] : [],
       });
     }
   });
 
   return Array.from(cityMap.entries())
+    .filter(([_, data]) => data.lats.length > 0)
     .sort((a, b) => b[1].count - a[1].count)
     .slice(0, 20)
     .map(([name, data], i) => ({
       id: name.toLowerCase().replace(/\s+/g, '-'),
       name,
-      lat: data.lat,
-      lng: data.lng,
+      lat: data.lats.reduce((a, b) => a + b, 0) / data.lats.length,
+      lng: data.lngs.reduce((a, b) => a + b, 0) / data.lngs.length,
       priority: i < 3 ? 1 : i < 8 ? 2 : 3,
     }));
 };
-
-const baseCities: { id: string; name: string; lat: number; lng: number; priority: number }[] = [];
 
 // Seeded random for consistent but varied positions per metric
 const seededRandom = (seed: number) => {
@@ -143,35 +145,50 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
       
       switch (metric) {
         case 'churn':
-          count = cityEvents.filter(e => e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico').length;
-          criticalCount = cityEvents.filter(e => e.churn_risk_bucket === 'Crítico').length;
+          // Get unique clients with high churn risk
+          const churnClients = new Set(cityEvents.filter(e => e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico').map(e => e.cliente_id));
+          const criticalChurnClients = new Set(cityEvents.filter(e => e.churn_risk_bucket === 'Crítico').map(e => e.cliente_id));
+          count = churnClients.size;
+          criticalCount = criticalChurnClients.size;
           break;
         case 'vencido':
-          count = cityEvents.filter(e => e.cobranca_status === 'Vencido').length;
-          criticalCount = cityEvents.filter(e => (e.dias_atraso || 0) > 30).length;
+          // Get unique clients with overdue payments
+          const vencidoClients = new Set(cityEvents.filter(e => e.cobranca_status === 'Vencido' || (e.dias_atraso && e.dias_atraso > 0)).map(e => e.cliente_id));
+          const vencidoCritical = new Set(cityEvents.filter(e => (e.dias_atraso || 0) > 30).map(e => e.cliente_id));
+          count = vencidoClients.size;
+          criticalCount = vencidoCritical.size;
           break;
         case 'sinal':
-          count = cityEvents.filter(e => e.event_type === 'SINAL' && e.alerta_tipo === 'Sinal crítico').length;
-          criticalCount = cityEvents.filter(e => (e.packet_loss_pct || 0) > 5).length;
+          // Get unique clients with signal issues
+          const sinalClients = new Set(cityEvents.filter(e => e.event_type === 'SINAL' && (e.alerta_tipo === 'Sinal crítico' || (e.packet_loss_pct && e.packet_loss_pct > 1))).map(e => e.cliente_id));
+          const sinalCritical = new Set(cityEvents.filter(e => e.event_type === 'SINAL' && ((e.packet_loss_pct || 0) > 2 || (e.downtime_min_24h || 0) > 30)).map(e => e.cliente_id));
+          count = sinalClients.size;
+          criticalCount = sinalCritical.size;
           break;
         case 'detrator':
-          count = cityEvents.filter(e => e.event_type === 'NPS' && (e.nps_score || 10) <= 6).length;
-          criticalCount = cityEvents.filter(e => (e.nps_score || 10) <= 4).length;
+          // Get unique detractors (NPS <= 6)
+          const detratorClients = new Set(cityEvents.filter(e => e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 6).map(e => e.cliente_id));
+          const detratorCritical = new Set(cityEvents.filter(e => e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 4).map(e => e.cliente_id));
+          count = detratorClients.size;
+          criticalCount = detratorCritical.size;
           break;
         case 'reincidencia':
-          count = cityEvents.filter(e => e.reincidente_30d).length;
-          criticalCount = cityEvents.filter(e => e.reincidente_30d && e.churn_risk_bucket === 'Crítico').length;
+          // Get unique reincident clients
+          const reincClients = new Set(cityEvents.filter(e => e.reincidente_30d === true).map(e => e.cliente_id));
+          const reincCritical = new Set(cityEvents.filter(e => e.reincidente_30d === true && (e.churn_risk_bucket === 'Crítico' || e.churn_risk_bucket === 'Alto')).map(e => e.cliente_id));
+          count = reincClients.size;
+          criticalCount = reincCritical.size;
           break;
       }
 
       const severity: 'critical' | 'high' | 'medium' | 'low' = 
         count === 0 ? 'low' :
-        criticalCount > count * 0.35 ? 'critical' : 
-        criticalCount > count * 0.2 ? 'high' : 
-        criticalCount > count * 0.1 ? 'medium' : 'low';
+        criticalCount > count * 0.5 ? 'critical' : 
+        criticalCount > count * 0.3 ? 'high' : 
+        count > 5 ? 'medium' : 'low';
 
       const offset = getOffsetForMetric(city.id, metric, idx);
-      return { city, count: Math.max(count, 0), severity, offset };
+      return { city, count, severity, offset };
     }).filter(d => d.count > 0);
   }, [dataCities, eventos, metric]);
 
@@ -187,13 +204,27 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
     }
   };
 
+  // Calculate map center from data
+  const mapCenter = useMemo(() => {
+    if (dataCities.length === 0) return { lat: -27.0, lng: -50.0 };
+    const avgLat = dataCities.reduce((sum, c) => sum + c.lat, 0) / dataCities.length;
+    const avgLng = dataCities.reduce((sum, c) => sum + c.lng, 0) / dataCities.length;
+    return { lat: avgLat, lng: avgLng };
+  }, [dataCities]);
+
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current) return;
+    
+    // Remove existing map if any
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
 
     const map = L.map(mapRef.current, {
-      center: [-5.2, -39.3],
-      zoom: 7,
+      center: [mapCenter.lat, mapCenter.lng],
+      zoom: 6,
       zoomControl: false,
       attributionControl: false,
     });
@@ -208,7 +239,7 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, []);
+  }, [mapCenter]);
 
   // Update markers when data changes
   useEffect(() => {
