@@ -78,13 +78,20 @@ export function useDataLoader() {
     if (filters.status) filtered = filtered.filter(e => e.servico_status === filters.status);
     
     if (filters.driver !== 'all') {
-      const driverMap: Record<string, string[]> = {
-        instabilidade: ['Sinal crítico', 'Qualidade de rede'],
-        financeiro: ['Financeiro'],
-        reincidencia: ['Reincidência'],
-        detrator: ['Detrator (NPS)'],
-      };
-      filtered = filtered.filter(e => driverMap[filters.driver]?.includes(e.alerta_tipo || ''));
+      filtered = filtered.filter(e => {
+        switch (filters.driver) {
+          case 'instabilidade':
+            return e.event_type === 'SINAL' && (e.alerta_tipo === 'Sinal crítico' || e.alerta_tipo === 'Qualidade de rede' || (e.packet_loss_pct && e.packet_loss_pct > 1));
+          case 'financeiro':
+            return e.event_type === 'COBRANCA' && (e.cobranca_status === 'Vencido' || (e.dias_atraso && e.dias_atraso > 0));
+          case 'reincidencia':
+            return e.reincidente_30d === true;
+          case 'detrator':
+            return e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 6;
+          default:
+            return true;
+        }
+      });
     }
     
     return filtered;
@@ -223,20 +230,25 @@ export function useDataLoader() {
     };
   }, [clientes]);
 
-  // Driver stats
+  // Driver stats - count unique clients per driver
   const driverStats = useMemo(() => {
+    const instabClientes = new Set(eventos.filter(e => e.event_type === 'SINAL' && (e.alerta_tipo === 'Sinal crítico' || e.alerta_tipo === 'Qualidade de rede' || (e.packet_loss_pct && e.packet_loss_pct > 1))).map(e => e.cliente_id));
+    const financeiroClientes = new Set(eventos.filter(e => e.event_type === 'COBRANCA' && (e.cobranca_status === 'Vencido' || (e.dias_atraso && e.dias_atraso > 0))).map(e => e.cliente_id));
+    const reincidClientes = new Set(eventos.filter(e => e.reincidente_30d === true).map(e => e.cliente_id));
+    const detratorClientes = new Set(eventos.filter(e => e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 6).map(e => e.cliente_id));
+    
     const drivers = {
-      instabilidade: filteredEventos.filter(e => e.alerta_tipo === 'Sinal crítico' || e.alerta_tipo === 'Qualidade de rede').length,
-      financeiro: filteredEventos.filter(e => e.alerta_tipo === 'Financeiro').length,
-      reincidencia: filteredEventos.filter(e => e.alerta_tipo === 'Reincidência').length,
-      detrator: filteredEventos.filter(e => e.alerta_tipo === 'Detrator (NPS)').length,
+      instabilidade: instabClientes.size,
+      financeiro: financeiroClientes.size,
+      reincidencia: reincidClientes.size,
+      detrator: detratorClientes.size,
     };
     
-    const total = Object.values(drivers).reduce((a, b) => a + b, 0);
+    const total = new Set(eventos.map(e => e.cliente_id)).size;
     const principal = Object.entries(drivers).sort((a, b) => b[1] - a[1])[0];
     
     return { drivers, total, principal: principal?.[0] || 'N/A' };
-  }, [filteredEventos]);
+  }, [eventos]);
 
   // Signal critical percentage
   const sinalCritico = useMemo(() => {
