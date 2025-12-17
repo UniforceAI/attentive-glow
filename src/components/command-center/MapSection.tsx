@@ -159,23 +159,44 @@ export function MapSection({ filaRisco, filaCobranca, eventos, metric, onMetricC
           criticalCount = vencidoCritical.size;
           break;
         case 'sinal':
-          // Get unique clients with signal issues
-          const sinalClients = new Set(cityEvents.filter(e => e.event_type === 'SINAL' && (e.alerta_tipo === 'Sinal crítico' || (e.packet_loss_pct && e.packet_loss_pct > 1))).map(e => e.cliente_id));
-          const sinalCritical = new Set(cityEvents.filter(e => e.event_type === 'SINAL' && ((e.packet_loss_pct || 0) > 2 || (e.downtime_min_24h || 0) > 30)).map(e => e.cliente_id));
+          // Get unique clients with signal issues - more inclusive
+          const sinalClients = new Set(cityEvents.filter(e => 
+            e.event_type === 'SINAL' || 
+            e.alerta_tipo === 'Sinal crítico' || 
+            (e.packet_loss_pct && e.packet_loss_pct > 0.5) ||
+            (e.latency_ms && e.latency_ms > 50) ||
+            (e.downtime_min_24h && e.downtime_min_24h > 0)
+          ).map(e => e.cliente_id));
+          const sinalCritical = new Set(cityEvents.filter(e => 
+            e.alerta_tipo === 'Sinal crítico' ||
+            (e.packet_loss_pct && e.packet_loss_pct > 2) || 
+            (e.downtime_min_24h && e.downtime_min_24h > 30)
+          ).map(e => e.cliente_id));
           count = sinalClients.size;
           criticalCount = sinalCritical.size;
           break;
         case 'detrator':
-          // Get unique detractors (NPS <= 6)
-          const detratorClients = new Set(cityEvents.filter(e => e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 6).map(e => e.cliente_id));
-          const detratorCritical = new Set(cityEvents.filter(e => e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 4).map(e => e.cliente_id));
+          // Get unique detractors (NPS <= 6) - check for NPS events
+          const detratorClients = new Set(cityEvents.filter(e => 
+            e.event_type === 'NPS' || 
+            (e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 6)
+          ).map(e => e.cliente_id));
+          const detratorCritical = new Set(cityEvents.filter(e => 
+            e.nps_score !== null && e.nps_score !== undefined && e.nps_score <= 4
+          ).map(e => e.cliente_id));
           count = detratorClients.size;
           criticalCount = detratorCritical.size;
           break;
         case 'reincidencia':
-          // Get unique reincident clients
-          const reincClients = new Set(cityEvents.filter(e => e.reincidente_30d === true).map(e => e.cliente_id));
-          const reincCritical = new Set(cityEvents.filter(e => e.reincidente_30d === true && (e.churn_risk_bucket === 'Crítico' || e.churn_risk_bucket === 'Alto')).map(e => e.cliente_id));
+          // Get unique reincident clients - also check ATENDIMENTO events
+          const reincClients = new Set(cityEvents.filter(e => 
+            e.reincidente_30d === true || 
+            e.event_type === 'ATENDIMENTO'
+          ).map(e => e.cliente_id));
+          const reincCritical = new Set(cityEvents.filter(e => 
+            e.reincidente_30d === true && 
+            (e.churn_risk_bucket === 'Crítico' || e.churn_risk_bucket === 'Alto')
+          ).map(e => e.cliente_id));
           count = reincClients.size;
           criticalCount = reincCritical.size;
           break;
