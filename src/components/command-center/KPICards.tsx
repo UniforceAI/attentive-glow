@@ -69,86 +69,90 @@ function KPICard({ title, value, delta, icon, variant = 'default', tooltip }: {
 }
 
 export function KPICards({ kpis, sinalCritico, detratores, ltvStats }: KPICardsProps) {
-  if (!kpis) return null;
+  // Show empty state with N/A values when no data
+  const hasData = kpis && kpis.clientesAtivos;
+  
+  const getValue = (obj: any, defaultValue = 0) => obj?.value ?? defaultValue;
+  const getDelta = (obj: any) => obj?.delta;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-2">
       <KPICard 
         title="Clientes Ativos" 
-        value={kpis.clientesAtivos.value.toLocaleString('pt-BR')} 
-        delta={kpis.clientesAtivos.delta}
+        value={hasData ? getValue(kpis.clientesAtivos).toLocaleString('pt-BR') : 'N/A'} 
+        delta={hasData ? getDelta(kpis.clientesAtivos) : undefined}
         icon={<Users className="h-5 w-5" />} 
-        variant="success"
+        variant={hasData && getValue(kpis.clientesAtivos) > 0 ? "success" : "default"}
         tooltip="Total de clientes com serviço ativo no período. Delta MoM."
       />
       <KPICard 
         title="Novos Clientes" 
-        value={kpis.novosClientes.value.toLocaleString('pt-BR')} 
-        delta={kpis.novosClientes.delta}
+        value={hasData ? getValue(kpis.novosClientes).toLocaleString('pt-BR') : 'N/A'} 
+        delta={hasData ? getDelta(kpis.novosClientes) : undefined}
         icon={<UserPlus className="h-5 w-5" />} 
-        variant="primary"
+        variant={hasData && getValue(kpis.novosClientes) > 0 ? "primary" : "default"}
         tooltip="Clientes que entraram na base no mês. Delta MoM."
       />
       <KPICard 
         title="Churn (Rescisões)" 
-        value={kpis.churnRescisoes.value.toLocaleString('pt-BR')} 
-        delta={kpis.churnRescisoes.delta}
+        value={hasData ? getValue(kpis.churnRescisoes).toLocaleString('pt-BR') : 'N/A'} 
+        delta={hasData ? getDelta(kpis.churnRescisoes) : undefined}
         icon={<UserMinus className="h-5 w-5" />} 
-        variant="danger"
+        variant={hasData && getValue(kpis.churnRescisoes) > 0 ? "danger" : "default"}
         tooltip="Clientes que cancelaram no mês. Acompanhe para identificar tendências."
       />
       <KPICard 
         title="MRR Total" 
-        value={formatCurrency(kpis.mrrTotal.value)} 
-        delta={kpis.mrrTotal.delta}
+        value={hasData ? formatCurrency(getValue(kpis.mrrTotal)) : 'N/A'} 
+        delta={hasData ? getDelta(kpis.mrrTotal) : undefined}
         icon={<DollarSign className="h-5 w-5" />} 
-        variant="primary"
+        variant={hasData && getValue(kpis.mrrTotal) > 0 ? "primary" : "default"}
         tooltip="Receita Recorrente Mensal total da base ativa."
       />
       <KPICard 
         title="Faturamento Recebido" 
-        value={formatCurrency(kpis.faturamentoRecebido.value)} 
-        delta={kpis.faturamentoRecebido.delta}
+        value={hasData ? formatCurrency(getValue(kpis.faturamentoRecebido)) : 'N/A'} 
+        delta={hasData ? getDelta(kpis.faturamentoRecebido) : undefined}
         icon={<Banknote className="h-5 w-5" />} 
-        variant="success"
+        variant={hasData && getValue(kpis.faturamentoRecebido) > 0 ? "success" : "default"}
         tooltip="Valor efetivamente recebido no mês. Diferença com MRR indica inadimplência."
       />
       <KPICard 
         title="MRR em Risco" 
-        value={formatCurrency(kpis.mrrEmRiscoChurn.value)} 
-        delta={kpis.mrrEmRiscoChurn.delta}
+        value={hasData ? formatCurrency(getValue(kpis.mrrEmRiscoChurn)) : 'N/A'} 
+        delta={hasData ? getDelta(kpis.mrrEmRiscoChurn) : undefined}
         icon={<AlertTriangle className="h-5 w-5" />} 
-        variant="danger"
+        variant={hasData && getValue(kpis.mrrEmRiscoChurn) > 0 ? "danger" : "default"}
         tooltip="MRR de clientes com risco Alto/Crítico de churn. Priorize ações de retenção."
       />
       <KPICard 
         title="LTV em Risco" 
-        value={formatCurrency(kpis.ltvEmRiscoChurn.value)} 
-        delta={kpis.ltvEmRiscoChurn.delta}
+        value={hasData ? formatCurrency(getValue(kpis.ltvEmRiscoChurn)) : 'N/A'} 
+        delta={hasData ? getDelta(kpis.ltvEmRiscoChurn) : undefined}
         icon={<Shield className="h-5 w-5" />} 
-        variant="danger"
+        variant={hasData && getValue(kpis.ltvEmRiscoChurn) > 0 ? "danger" : "default"}
         tooltip="Valor de vida útil dos clientes em risco de churn. Impacto potencial no longo prazo."
       />
       <KPICard 
         title="R$ Vencido" 
-        value={formatCurrency(kpis.rVencido.value)} 
-        delta={kpis.rVencido.delta}
+        value={hasData ? formatCurrency(getValue(kpis.rVencido)) : 'N/A'} 
+        delta={hasData ? getDelta(kpis.rVencido) : undefined}
         icon={<DollarSign className="h-5 w-5" />} 
-        variant="warning"
+        variant={hasData && getValue(kpis.rVencido) > 0 ? "warning" : "default"}
         tooltip="Total de cobranças vencidas. Acione fila de cobrança para recuperação."
       />
       <KPICard 
         title="% Sinal Crítico" 
-        value={`${sinalCritico.toFixed(1)}%`} 
+        value={typeof sinalCritico === 'number' ? `${sinalCritico.toFixed(1)}%` : 'N/A'} 
         icon={<Wifi className="h-5 w-5" />} 
         variant={sinalCritico > 10 ? 'danger' : 'default'}
         tooltip="% de eventos de sinal com problemas críticos. Priorize manutenção preventiva."
       />
       <KPICard 
         title="% Detratores" 
-        value={`${detratores.toFixed(1)}%`} 
+        value={typeof detratores === 'number' ? `${detratores.toFixed(1)}%` : 'N/A'} 
         icon={<ThumbsDown className="h-5 w-5" />} 
-        variant={detratores > 20 ? 'danger' : 'warning'}
+        variant={detratores > 20 ? 'danger' : 'default'}
         tooltip="% de respostas NPS ≤6. Clientes insatisfeitos com alto risco de churn."
       />
     </div>

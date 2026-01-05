@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useEventos } from "@/hooks/useEventos";
+import { useDataLoader } from "@/hooks/useDataLoader";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipTrigger } from "@/componen
 type DimensionType = 'plano' | 'cidade' | 'bairro';
 
 const TendenciasPage = () => {
-  const { eventos } = useEventos();
+  const { allEventos: eventos } = useDataLoader();
   const [dimension, setDimension] = useState<DimensionType>('plano');
 
   // Séries mensais principais

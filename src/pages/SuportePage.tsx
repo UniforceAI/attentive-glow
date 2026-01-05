@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useEventos } from "@/hooks/useEventos";
+import { useDataLoader } from "@/hooks/useDataLoader";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 type DimensionType = 'plano' | 'cidade' | 'bairro';
 
 const SuportePage = () => {
-  const { eventos } = useEventos();
+  const { allEventos: eventos } = useDataLoader();
   const { toast } = useToast();
   const [dimension, setDimension] = useState<DimensionType>('plano');
 
