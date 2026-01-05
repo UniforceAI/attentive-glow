@@ -18,37 +18,28 @@ export function useDataLoader() {
     driver: 'all',
   });
 
-  // Fetch all eventos from Supabase
+  // Fetch all eventos from external Supabase via edge function
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Fetch all eventos - may need pagination for large datasets
-        let allEventos: any[] = [];
-        let from = 0;
-        const batchSize = 1000;
-        let hasMore = true;
+        // Call edge function to fetch from external Supabase
+        const { data, error } = await supabase.functions.invoke('fetch-external-eventos');
 
-        while (hasMore) {
-          const { data, error } = await supabase
-            .from('eventos')
-            .select('*')
-            .order('event_datetime', { ascending: false })
-            .range(from, from + batchSize - 1);
-
-          if (error) throw error;
-
-          if (data && data.length > 0) {
-            allEventos = [...allEventos, ...data];
-            from += batchSize;
-            hasMore = data.length === batchSize;
-          } else {
-            hasMore = false;
-          }
+        if (error) {
+          console.error("Edge function error:", error);
+          throw new Error(error.message || "Erro ao chamar função");
         }
 
-        // Transform Supabase data to match Evento type
-        const transformedEventos: Evento[] = allEventos.map(e => ({
+        if (data?.error) {
+          console.error("External Supabase error:", data.error);
+          throw new Error(data.error);
+        }
+
+        const allEventos = data?.eventos || [];
+
+        // Transform data to match Evento type
+        const transformedEventos: Evento[] = allEventos.map((e: any) => ({
           ...e,
           event_id: String(e.event_id),
           cliente_id: String(e.cliente_id),
@@ -62,12 +53,20 @@ export function useDataLoader() {
 
         setEventos(transformedEventos);
         
-        toast({ 
-          title: "Dados carregados!", 
-          description: `${transformedEventos.length} eventos do Supabase` 
-        });
+        if (transformedEventos.length > 0) {
+          toast({ 
+            title: "Dados carregados!", 
+            description: `${transformedEventos.length} eventos do Supabase externo` 
+          });
+        } else {
+          toast({ 
+            title: "Nenhum dado encontrado", 
+            description: "A tabela eventos está vazia no Supabase externo",
+            variant: "destructive"
+          });
+        }
       } catch (error: any) {
-        console.error("Erro ao carregar dados do Supabase:", error);
+        console.error("Erro ao carregar dados:", error);
         toast({ 
           title: "Erro ao carregar dados", 
           description: error.message, 
