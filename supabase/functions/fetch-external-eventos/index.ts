@@ -38,9 +38,8 @@ serve(async (req) => {
 
     while (hasMore) {
       const { data, error } = await externalSupabase
-        .from("eventos")
+        .from("vw_eventos_por_isp")
         .select("*")
-        .order("event_datetime", { ascending: false })
         .range(from, from + batchSize - 1);
 
       if (error) {
