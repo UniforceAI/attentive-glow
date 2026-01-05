@@ -90,10 +90,8 @@ export function useDataLoader() {
     
     sorted.forEach(e => {
       if (!clienteMap.has(e.cliente_id)) {
-        // Calculate LTV: assume 24 months average lifetime
-        const ltvMeses = 24;
-        const ltvReais = (e.valor_mensalidade || 0) * ltvMeses;
-        
+        // Use real data from DB - no hardcoded fallbacks
+        // LTV fields should come from database, show 0 if not available
         clienteMap.set(e.cliente_id, {
           cliente_id: e.cliente_id,
           cliente_nome: e.cliente_nome,
@@ -116,8 +114,8 @@ export function useDataLoader() {
           valor_mensalidade: e.valor_mensalidade || 0,
           dia_vencimento: e.dia_vencimento || 0,
           data_instalacao: e.data_instalacao || '',
-          ltv_meses_estimado: e.ltv_meses_estimado || ltvMeses,
-          ltv_reais_estimado: e.ltv_reais_estimado || ltvReais,
+          ltv_meses_estimado: e.ltv_meses_estimado || 0,
+          ltv_reais_estimado: e.ltv_reais_estimado || 0,
         });
       }
     });
@@ -186,10 +184,10 @@ export function useDataLoader() {
         m.churn_rescisoes++;
       }
       
-      // MRR/LTV at risk
+      // MRR/LTV at risk - use real data only, no fallbacks
       if (e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico') {
         m.MRR_em_risco_churn += e.valor_mensalidade || 0;
-        m.LTV_em_risco_churn += (e.ltv_reais_estimado || (e.valor_mensalidade || 0) * 24);
+        m.LTV_em_risco_churn += e.ltv_reais_estimado || 0;
       }
       
       monthMap.set(mes, m);
