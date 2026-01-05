@@ -1,29 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { Evento, Cliente, MetricaMensal, FilterState, ClienteRisco, ClienteCobranca } from "@/types/evento";
 import { useToast } from "@/hooks/use-toast";
-
-function parseCSV<T>(text: string): T[] {
-  const lines = text.trim().split('\n');
-  const headers = lines[0].split(',');
-  return lines.slice(1).map(line => {
-    const values = line.split(',');
-    const obj: any = {};
-    headers.forEach((h, i) => {
-      let val: any = values[i]?.trim() || '';
-      if (val === '' || val === 'False') val = val === 'False' ? false : null;
-      else if (val === 'True') val = true;
-      else if (!isNaN(Number(val)) && val !== '') val = Number(val);
-      obj[h.trim()] = val;
-    });
-    return obj as T;
-  });
-}
+import { supabase } from "@/integrations/supabase/client";
 
 export function useDataLoader() {
   const { toast } = useToast();
   const [eventos, setEventos] = useState<Evento[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [metricasMensais, setMetricasMensais] = useState<MetricaMensal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState<FilterState>({
     periodo: '12m',
@@ -36,36 +18,187 @@ export function useDataLoader() {
     driver: 'all',
   });
 
+  // Fetch all eventos from Supabase
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [eventosRes, clientesRes, metricasRes] = await Promise.all([
-          fetch('/data/eventos.csv'),
-          fetch('/data/clientes.csv'),
-          fetch('/data/metricas_mensais.csv'),
-        ]);
+        // Fetch all eventos - may need pagination for large datasets
+        let allEventos: any[] = [];
+        let from = 0;
+        const batchSize = 1000;
+        let hasMore = true;
 
-        const [eventosText, clientesText, metricasText] = await Promise.all([
-          eventosRes.text(),
-          clientesRes.text(),
-          metricasRes.text(),
-        ]);
+        while (hasMore) {
+          const { data, error } = await supabase
+            .from('eventos')
+            .select('*')
+            .order('event_datetime', { ascending: false })
+            .range(from, from + batchSize - 1);
 
-        setEventos(parseCSV<Evento>(eventosText));
-        setClientes(parseCSV<Cliente>(clientesText));
-        setMetricasMensais(parseCSV<MetricaMensal>(metricasText));
+          if (error) throw error;
 
-        toast({ title: "Dados carregados!", description: "Dashboard pronto" });
+          if (data && data.length > 0) {
+            allEventos = [...allEventos, ...data];
+            from += batchSize;
+            hasMore = data.length === batchSize;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        // Transform Supabase data to match Evento type
+        const transformedEventos: Evento[] = allEventos.map(e => ({
+          ...e,
+          event_id: String(e.event_id),
+          cliente_id: String(e.cliente_id),
+          servico_id: e.servico_id ? String(e.servico_id) : null,
+          event_type: e.event_type as 'COBRANCA' | 'ATENDIMENTO' | 'SINAL' | 'NPS',
+          mes_referencia: e.mes_referencia ? String(e.mes_referencia).substring(0, 7) : null,
+          churn_risk_bucket: e.churn_risk_bucket as 'Baixo' | 'Médio' | 'Alto' | 'Crítico' | null,
+          geo_lat: e.geo_lat ? Number(e.geo_lat) : null,
+          geo_lng: e.geo_lng ? Number(e.geo_lng) : null,
+        }));
+
+        setEventos(transformedEventos);
+        
+        toast({ 
+          title: "Dados carregados!", 
+          description: `${transformedEventos.length} eventos do Supabase` 
+        });
       } catch (error: any) {
-        console.error("Erro ao carregar dados:", error);
-        toast({ title: "Erro", description: error.message, variant: "destructive" });
+        console.error("Erro ao carregar dados do Supabase:", error);
+        toast({ 
+          title: "Erro ao carregar dados", 
+          description: error.message, 
+          variant: "destructive" 
+        });
       } finally {
         setIsLoading(false);
       }
     };
     loadData();
   }, []);
+
+  // Derive clientes from eventos (unique clients with latest info)
+  const clientes = useMemo((): Cliente[] => {
+    const clienteMap = new Map<string, Cliente>();
+    
+    // Sort by event_datetime desc to get latest info first
+    const sorted = [...eventos].sort((a, b) => 
+      new Date(b.event_datetime).getTime() - new Date(a.event_datetime).getTime()
+    );
+    
+    sorted.forEach(e => {
+      if (!clienteMap.has(e.cliente_id)) {
+        // Calculate LTV: assume 24 months average lifetime
+        const ltvMeses = 24;
+        const ltvReais = (e.valor_mensalidade || 0) * ltvMeses;
+        
+        clienteMap.set(e.cliente_id, {
+          cliente_id: e.cliente_id,
+          cliente_nome: e.cliente_nome,
+          cliente_documento: e.cliente_documento || '',
+          cliente_email: e.cliente_email || '',
+          cliente_celular: e.cliente_celular || '',
+          cliente_cidade: e.cliente_cidade || '',
+          cliente_bairro: e.cliente_bairro || '',
+          cliente_uf: e.cliente_uf || '',
+          cliente_cep: e.cliente_cep || '',
+          geo_lat: e.geo_lat || 0,
+          geo_lng: e.geo_lng || 0,
+          cliente_segmento: e.cliente_segmento || '',
+          cliente_data_cadastro: e.cliente_data_cadastro || '',
+          servico_id: e.servico_id || '',
+          tipo_servico: e.tipo_servico || '',
+          plano_nome: e.plano_nome || '',
+          velocidade_down_mbps: e.velocidade_down_mbps || 0,
+          velocidade_up_mbps: e.velocidade_up_mbps || 0,
+          valor_mensalidade: e.valor_mensalidade || 0,
+          dia_vencimento: e.dia_vencimento || 0,
+          data_instalacao: e.data_instalacao || '',
+          ltv_meses_estimado: e.ltv_meses_estimado || ltvMeses,
+          ltv_reais_estimado: e.ltv_reais_estimado || ltvReais,
+        });
+      }
+    });
+    
+    return Array.from(clienteMap.values());
+  }, [eventos]);
+
+  // Derive metricasMensais from eventos (aggregate by month)
+  const metricasMensais = useMemo((): MetricaMensal[] => {
+    const monthMap = new Map<string, MetricaMensal>();
+    
+    eventos.forEach(e => {
+      // Extract month from event_datetime or mes_referencia
+      let mes = '';
+      if (e.mes_referencia) {
+        mes = String(e.mes_referencia).substring(0, 7);
+      } else if (e.event_datetime) {
+        mes = String(e.event_datetime).substring(0, 7);
+      }
+      
+      if (!mes) return;
+      
+      if (!monthMap.has(mes)) {
+        monthMap.set(mes, {
+          mes,
+          clientes_ativos: 0,
+          novos_clientes: 0,
+          churn_rescisoes: 0,
+          MRR_total: 0,
+          Faturamento_recebido: 0,
+          R_em_aberto: 0,
+          R_vencido: 0,
+          MRR_em_risco_churn: 0,
+          LTV_em_risco_churn: 0,
+        });
+      }
+      
+      const m = monthMap.get(mes)!;
+      
+      // Count unique clients per month
+      const clientesSet = new Set<string>();
+      eventos.filter(ev => {
+        const evMes = ev.mes_referencia ? String(ev.mes_referencia).substring(0, 7) : String(ev.event_datetime).substring(0, 7);
+        return evMes === mes;
+      }).forEach(ev => clientesSet.add(ev.cliente_id));
+      m.clientes_ativos = clientesSet.size;
+      
+      // Aggregate financials
+      if (e.event_type === 'COBRANCA') {
+        if (e.cobranca_status === 'Pago') {
+          m.Faturamento_recebido += e.valor_pago || 0;
+        } else if (e.cobranca_status === 'Em Aberto') {
+          m.R_em_aberto += e.valor_cobranca || 0;
+        } else if (e.cobranca_status === 'Vencido') {
+          m.R_vencido += e.valor_cobranca || 0;
+        }
+      }
+      
+      // MRR from active services
+      if (e.servico_status === 'Liberado' || e.servico_status === 'Ativo') {
+        m.MRR_total += e.valor_mensalidade || 0;
+      }
+      
+      // Churn count
+      if (e.servico_status === 'Cancelado') {
+        m.churn_rescisoes++;
+      }
+      
+      // MRR/LTV at risk
+      if (e.churn_risk_bucket === 'Alto' || e.churn_risk_bucket === 'Crítico') {
+        m.MRR_em_risco_churn += e.valor_mensalidade || 0;
+        m.LTV_em_risco_churn += (e.ltv_reais_estimado || (e.valor_mensalidade || 0) * 24);
+      }
+      
+      monthMap.set(mes, m);
+    });
+    
+    // Sort by month desc
+    return Array.from(monthMap.values()).sort((a, b) => b.mes.localeCompare(a.mes));
+  }, [eventos]);
 
   // Filter events based on current filters
   const filteredEventos = useMemo(() => {
@@ -162,6 +295,8 @@ export function useDataLoader() {
 
   // KPIs from monthly metrics (latest month)
   const kpis = useMemo(() => {
+    if (!metricasMensais.length) return null;
+    
     const sorted = [...metricasMensais].sort((a, b) => b.mes.localeCompare(a.mes));
     const latest = sorted[0];
     const previous = sorted[1];
@@ -197,6 +332,7 @@ export function useDataLoader() {
     // LTV by plan
     const byPlano = new Map<string, { total: number; count: number }>();
     clientes.forEach(c => {
+      if (!c.plano_nome) return;
       const p = byPlano.get(c.plano_nome) || { total: 0, count: 0 };
       p.total += c.ltv_reais_estimado;
       p.count++;
@@ -206,6 +342,7 @@ export function useDataLoader() {
     // LTV by city
     const byCidade = new Map<string, { total: number; count: number }>();
     clientes.forEach(c => {
+      if (!c.cliente_cidade) return;
       const p = byCidade.get(c.cliente_cidade) || { total: 0, count: 0 };
       p.total += c.ltv_reais_estimado;
       p.count++;
@@ -215,6 +352,7 @@ export function useDataLoader() {
     // LTV by bairro
     const byBairro = new Map<string, { total: number; count: number }>();
     clientes.forEach(c => {
+      if (!c.cliente_bairro) return;
       const p = byBairro.get(c.cliente_bairro) || { total: 0, count: 0 };
       p.total += c.ltv_reais_estimado;
       p.count++;
