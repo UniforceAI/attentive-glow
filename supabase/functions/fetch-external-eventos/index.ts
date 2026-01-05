@@ -15,19 +15,19 @@ serve(async (req) => {
   try {
     // Get credentials from secrets
     const sourceUrl = Deno.env.get("SOURCE_SUPABASE_URL");
-    const sourceKey = Deno.env.get("SOURCE_SUPABASE_ANON_KEY");
+    const sourceKey = Deno.env.get("SOURCE_SUPABASE_SERVICE_KEY");
 
     if (!sourceUrl || !sourceKey) {
       return new Response(
         JSON.stringify({ 
           error: "Missing external Supabase credentials",
-          details: "SOURCE_SUPABASE_URL or SOURCE_SUPABASE_ANON_KEY not configured" 
+          details: "SOURCE_SUPABASE_URL or SOURCE_SUPABASE_SERVICE_KEY not configured" 
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Create client for external Supabase
+    // Create client for external Supabase with service role key (bypasses RLS)
     const externalSupabase = createClient(sourceUrl, sourceKey);
 
     // Fetch all eventos with pagination
@@ -38,8 +38,9 @@ serve(async (req) => {
 
     while (hasMore) {
       const { data, error } = await externalSupabase
-        .from("vw_eventos_por_isp")
+        .from("eventos")
         .select("*")
+        .order("event_datetime", { ascending: false })
         .range(from, from + batchSize - 1);
 
       if (error) {
